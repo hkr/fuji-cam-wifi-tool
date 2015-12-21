@@ -6,6 +6,11 @@
 
 namespace fcwt {
 
+const int main_server_port = 55740;
+const int jpg_stream_server_port = 55742;
+
+int connect_to_camera(int port);
+
 void init_connection();
 
 uint32_t to_fuji_size_prefix(uint32_t sizeBytes);

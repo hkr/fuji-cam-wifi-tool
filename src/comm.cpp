@@ -4,11 +4,36 @@
 #include <unistd.h>
 #include <errno.h>
 #include <algorithm>
-#include <stdlib.h>
+
+#include <arpa/inet.h> 
+#include <sys/types.h>
+#include <sys/socket.h>
 
 #include "log.hpp"
 
 namespace fcwt {
+
+const char* const server_ipv4_addr = "192.168.0.1";
+
+int connect_to_camera(int port)
+{
+  const int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+
+  if (sockfd < 0)
+    fatal_error("Failed to create socket\n");
+
+  LOG_INFO("Connection esatablished");
+
+  sockaddr_in sa = {};
+  sa.sin_family = AF_INET;
+  sa.sin_port = htons(port);
+  inet_pton(AF_INET, server_ipv4_addr, &sa.sin_addr);
+
+  if (connect(sockfd, reinterpret_cast<sockaddr*>(&sa), sizeof(sa)) < 0) 
+    fatal_error("ERROR connecting");
+
+  return sockfd;
+}
 
 uint32_t to_fuji_size_prefix(uint32_t sizeBytes) {
     // TODO, 0x endianess
