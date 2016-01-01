@@ -24,7 +24,7 @@ void fuji_send(int sockfd, void const* data, uint32_t sizeBytes);
 size_t fuji_receive(int sockfd, void* data, uint32_t sizeBytes);
 
 template <size_t N>
-static void fuji_send(int sockfd, uint8_t (&data)[N]) {
+static void fuji_send(int sockfd, uint8_t const (&data)[N]) {
     fuji_send(sockfd, data, N);
 }
 

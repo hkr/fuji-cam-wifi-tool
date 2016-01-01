@@ -9,6 +9,10 @@
 #include "log.hpp"
 #include "comm.hpp"
 
+#include <thread>
+#include <chrono>
+#include <atomic>
+
 namespace fcwt {
 
 struct registration_message
@@ -226,22 +230,44 @@ static void login_sequence(int sockfd) {
   print_hex(buffer, receivedBytes);
 }
 
-int main()
+void shutter(int const sockfd) 
 {
-    int const sockfd = connect_to_camera(main_server_port);
-  if (sockfd < 0)
-    return 1;
+  LOG_INFO("shutter");
+  uint8_t const shutter_message_1[] = { 0x01, 0x00, 0x15, 0x10, 0x14, 0x00, 0x00, 0x00, 0x12, 0xd2, 0x00, 0x00 };
+  uint8_t const shutter_message_2[] = { 0x01, 0x00, 0x22, 0x90, 0x15, 0x00, 0x00, 0x00 };
 
-  login_sequence(sockfd);
+  uint8_t buffer[1024 * 1024];
+  uint32_t receivedBytes = 0;
+#if 0
+  LOG_INFO("shutter_message_1");
+  fuji_send(sockfd, shutter_message_1);
+  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
+  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
+  print_hex(buffer, receivedBytes);
+  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
+  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
+  print_hex(buffer, receivedBytes);
+#endif
+  LOG_INFO("shutter_message_2");
+  fuji_send(sockfd, shutter_message_1);
+  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
+  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
+}
 
+void image_stream_main(std::atomic<bool>& flag)
+{
+  LOG_INFO("image_stream_main");
   int const sockfd2 = connect_to_camera(jpg_stream_server_port);
 
+  if (sockfd2 <= 0)
+    return;
+
   int image = 0;
-  while (true)
+  while (flag)
   {
     uint8_t buffer[1024 * 1024];
     uint32_t receivedBytes = fuji_receive(sockfd2, buffer, sizeof(buffer));
-    LOG_INFO_FORMAT("received %d bytes", receivedBytes);
+    LOG_INFO_FORMAT("image_stream_main received %d bytes", receivedBytes);
 
     char filename[1024];
     snprintf(filename, sizeof(filename), "out/img_%d.jpg", image++);
@@ -254,16 +280,36 @@ int main()
     }
     else
     {
-      LOG_WARN_FORMAT("Failed to create file %s", filename);
+      LOG_WARN_FORMAT("image_stream_main Failed to create file %s", filename);
     }
   }
+
+  close(sockfd2);
+}
+
+int main()
+{
+  int const sockfd = connect_to_camera(main_server_port);
+  if (sockfd < 0)
+    return 1;
+
+  login_sequence(sockfd);
+  
+  //std::atomic<bool> imageStreamFlag(true);
+  //std::thread imageStreamThread([&]() { image_stream_main(imageStreamFlag); });
+
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  
+  shutter(sockfd);
+
+  std::this_thread::sleep_for(std::chrono::seconds(2));
 
 ////
   if (sockfd > 0)
     close(sockfd);
 
-  if (sockfd2 > 0)
-    close(sockfd);
+  //imageStreamFlag = false;
+  //imageStreamThread.join();
 
   return 0;
 }
