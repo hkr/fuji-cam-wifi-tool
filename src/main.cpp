@@ -12,6 +12,7 @@
 #include <thread>
 #include <chrono>
 #include <atomic>
+#include <vector>
 
 namespace fcwt {
 
@@ -259,14 +260,16 @@ void image_stream_main(std::atomic<bool>& flag)
   LOG_INFO("image_stream_main");
   int const sockfd2 = connect_to_camera(jpg_stream_server_port);
 
+
+  std::vector<uint8_t> buffer(1024 * 1024);
+
   if (sockfd2 <= 0)
     return;
 
-  int image = 0;
+  unsigned int image = 0;
   while (flag)
   {
-    uint8_t buffer[1024 * 1024];
-    uint32_t receivedBytes = fuji_receive(sockfd2, buffer, sizeof(buffer));
+    uint32_t receivedBytes = fuji_receive(sockfd2, buffer.data(), buffer.size());
     LOG_INFO_FORMAT("image_stream_main received %d bytes", receivedBytes);
 
     char filename[1024];
@@ -275,7 +278,7 @@ void image_stream_main(std::atomic<bool>& flag)
     if (file)
     {
       int const header = 14; // not sure what's in the first 14 bytes
-      fwrite(buffer + header, receivedBytes, 1, file);
+      fwrite(&buffer[header], receivedBytes, 1, file);
       fclose(file);
     }
     else
@@ -295,21 +298,21 @@ int main()
 
   login_sequence(sockfd);
   
-  //std::atomic<bool> imageStreamFlag(true);
-  //std::thread imageStreamThread([&]() { image_stream_main(imageStreamFlag); });
+  std::atomic<bool> imageStreamFlag(true);
+  std::thread imageStreamThread([&]() { image_stream_main(imageStreamFlag); });
 
   std::this_thread::sleep_for(std::chrono::seconds(1));
   
-  shutter(sockfd);
+// shutter(sockfd);
 
   std::this_thread::sleep_for(std::chrono::seconds(2));
+
+  imageStreamFlag = false;
+  imageStreamThread.join();
 
 ////
   if (sockfd > 0)
     close(sockfd);
-
-  //imageStreamFlag = false;
-  //imageStreamThread.join();
 
   return 0;
 }
