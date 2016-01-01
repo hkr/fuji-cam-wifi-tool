@@ -27,9 +27,22 @@ struct registration_message
   uint8_t device_name[54] = {};
 };
 
+struct message
+{
+  uint16_t index;   // index if this is a multi-part message, not really surea bout the second byte
+  uint8_t type[2];  // not sure about this, might be two separate fields
+  uint32_t id;
+};
+
+struct status_request_message : message
+{
+  uint8_t const data[4] = { 0x12, 0xd2, 0x00, 0x00 };
+};
+
 uint8_t message1_response_error[] =
 {
-  0x05, 0x00, 0x00, 0x00, 0x19, 0x20, 0x00, 0x00
+  0x05, 0x00, 0x00, 0x00,
+  0x19, 0x20, 0x00, 0x00
 };
 
 uint8_t message2[] =
@@ -43,13 +56,6 @@ uint8_t message2_response_success[] =
 {
   0x03, 0x00, 0x01, 0x20,
   0x01, 0x00, 0x00, 0x00
-};
-
-uint8_t message3[] = 
-{
-  0x01, 0x00, 0x15, 0x10, 
-  0x02, 0x00, 0x00, 0x00, 
-  0x12, 0xd2, 0x00, 0x00
 };
 
 uint8_t message4_1[] =
@@ -75,22 +81,16 @@ uint8_t message5[] =
 
 uint8_t message6_1[] =
 {
-  0x01, 0x00, 0x16, 0x10, 0x05, 0x00, 0x00, 0x00, 0x24, 0xdf, 0x00, 0x00
+  0x01, 0x00, 0x16, 0x10,
+  0x05, 0x00, 0x00, 0x00,
+  0x24, 0xdf, 0x00, 0x00
 };
 
 uint8_t message6_2[] =
 {
-  0x02, 0x00, 0x16, 0x10, 0x05, 0x00, 0x00, 0x00, 0x02, 0x00, 0x02, 0x00
-};
-
-uint8_t message7[] =
-{
-  0x01, 0x00, 0x15, 0x10, 0x06, 0x00, 0x00, 0x00, 0x12, 0xd2, 0x00, 0x00
-};
-
-uint8_t message8[] =
-{
-  0x01, 0x00, 0x15, 0x10, 0x07, 0x00, 0x00, 0x00, 0x12, 0xd2, 0x00, 0x00
+  0x02, 0x00, 0x16, 0x10,
+  0x05, 0x00, 0x00, 0x00,
+  0x02, 0x00, 0x02, 0x00
 };
 
 uint8_t message9[] =
@@ -105,13 +105,6 @@ uint8_t message10[] =
   0x09, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00
-};
-
-uint8_t message11[] =
-{
-  0x01, 0x00, 0x15, 0x10,
-  0x0a, 0x00, 0x00, 0x00,
-  0x12, 0xd2, 0x00, 0x00
 };
 
 registration_message generate_registration_message(char const* device_name)
@@ -129,12 +122,25 @@ registration_message generate_registration_message(char const* device_name)
 	return msg;
 }
 
+static uint32_t generate_message_id()
+{
+  static std::atomic<uint32_t> id_counter;
+  return ++id_counter;
+}
+
+status_request_message generate_status_request_message()
+{
+  status_request_message msg = {};
+  msg.id = generate_message_id();
+  return msg;
+}
+
 static void login_sequence(int sockfd) {
   auto const reg_msg = generate_registration_message("HackedClient");
   fuji_send(sockfd, &reg_msg, sizeof(reg_msg));
   LOG_INFO("sent message 1");
 
-  uint8_t buffer[1024 * 1024];
+  uint8_t buffer[1024];
   uint32_t receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
   print_hex(buffer, receivedBytes);
   if (receivedBytes == sizeof(message1_response_error) && memcmp(buffer, message1_response_error, receivedBytes) == 0)
@@ -147,16 +153,6 @@ static void login_sequence(int sockfd) {
   //
   LOG_INFO("message2");
   fuji_send(sockfd, message2);
-  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
-  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
-  print_hex(buffer, receivedBytes);
-
-  //
-  LOG_INFO("message3");
-  fuji_send(sockfd, message3);
-  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
-  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
-  print_hex(buffer, receivedBytes);
   receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
   LOG_INFO_FORMAT("received %d bytes", receivedBytes);
   print_hex(buffer, receivedBytes);
@@ -188,26 +184,6 @@ static void login_sequence(int sockfd) {
   print_hex(buffer, receivedBytes);
 
   //
-  LOG_INFO("message7");
-  fuji_send(sockfd, message7);
-  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
-  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
-  print_hex(buffer, receivedBytes);
-  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
-  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
-  print_hex(buffer, receivedBytes);
-
-  //
-  LOG_INFO("message8");
-  fuji_send(sockfd, message8);
-  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
-  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
-  print_hex(buffer, receivedBytes);
-  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
-  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
-  print_hex(buffer, receivedBytes);
-
-  //
   LOG_INFO("message9");
   fuji_send(sockfd, message9);
   receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
@@ -221,12 +197,6 @@ static void login_sequence(int sockfd) {
   LOG_INFO("message10");
   fuji_send(sockfd, message10);
   receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
-  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
-  print_hex(buffer, receivedBytes);
-
-  //
-  LOG_INFO("message11");
-  fuji_send(sockfd, message10);
   LOG_INFO_FORMAT("received %d bytes", receivedBytes);
   print_hex(buffer, receivedBytes);
 }
