@@ -3,10 +3,10 @@
 
 #include <stdio.h>
 
-#define LOG_INFO(str, ...) printf("[INFO] " str "\n")
+#define LOG_INFO(str) printf("[INFO] " str "\n")
 #define LOG_INFO_FORMAT(fmt, ...) printf("[INFO] " fmt "\n", __VA_ARGS__)
 
-#define LOG_WARN(str, ...) printf("[WARNING] " str "\n")
+#define LOG_WARN(str) printf("[WARNING] " str "\n")
 #define LOG_WARN_FORMAT(fmt, ...) printf("[WARNING] " fmt "\n", __VA_ARGS__)
 
 namespace fcwt {
