@@ -28,6 +28,11 @@ static void fuji_send(int sockfd, uint8_t const (&data)[N]) {
     fuji_send(sockfd, data, N);
 }
 
+template <size_t N>
+static size_t fuji_receive(int sockfd, uint8_t (&data)[N]) {
+    return fuji_receive(sockfd, data, N);
+}
+
 } // namespace fcwt
 
 #endif
