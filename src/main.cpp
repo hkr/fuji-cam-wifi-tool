@@ -29,14 +29,27 @@ struct registration_message
 
 struct message
 {
-  uint16_t index;   // index if this is a multi-part message, not really surea bout the second byte
+  uint16_t index = 1;   // index if this is a multi-part message, not really surea bout the second byte
   uint8_t type[2];  // not sure about this, might be two separate fields
   uint32_t id;
 };
 
 struct status_request_message : message
 {
+  status_request_message()
+  {
+    index = 1;
+    type[0] = 0x15;
+    type[1] = 0x10;
+    id = 0;
+  }
   uint8_t const data[4] = { 0x12, 0xd2, 0x00, 0x00 };
+};
+
+struct response_success
+{
+  uint8_t const type[4] = {0x03, 0x00, 0x01, 0x20};
+  uint32_t id;
 };
 
 uint8_t message1_response_error[] =
@@ -49,12 +62,6 @@ uint8_t message2[] =
 {
   0x01, 0x00, 0x02, 0x10, 
   0x01, 0x00, 0x00, 0x00, 
-  0x01, 0x00, 0x00, 0x00
-};
-
-uint8_t message2_response_success[] =
-{
-  0x03, 0x00, 0x01, 0x20,
   0x01, 0x00, 0x00, 0x00
 };
 
@@ -128,6 +135,14 @@ static uint32_t generate_message_id()
   return ++id_counter;
 }
 
+template <size_t N>
+uint8_t (&add_message_id(uint8_t(&buffer)[N], uint32_t id))[N]
+{
+  static_assert(N >= 8, "buffer must be larger than 8 bytes");
+  memcpy(&buffer[4], &id, sizeof(id));
+  return buffer;
+} 
+
 status_request_message generate_status_request_message()
 {
   status_request_message msg = {};
@@ -135,7 +150,45 @@ status_request_message generate_status_request_message()
   return msg;
 }
 
-static void login_sequence(int sockfd) {
+static bool is_success_response(uint32_t const id, void const* buffer, uint32_t const size)
+{
+  if (size != 8)
+    return false;
+  
+  response_success success = {};
+  success.id = id;
+  bool const result = memcmp(&success, buffer, 8) == 0;
+  if (!result)
+  {
+    LOG_INFO("expected: ");
+    print_hex(&success, 8);
+    LOG_INFO("actual: ");
+    print_hex(buffer, 8);
+  }
+  return result;
+}
+
+template <size_t N>
+static bool fuji_send_and_receive(int const sockfd, uint32_t const id, uint8_t(&msg)[N])
+{
+  fuji_send(sockfd, add_message_id(msg, id));
+
+  uint8_t buffer[1024];
+  uint32_t receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
+  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
+  print_hex(buffer, receivedBytes);
+
+  return is_success_response(id, buffer, receivedBytes);
+}
+
+template <size_t N1, size_t N2>
+static bool fuji_send_and_receive(int const sockfd, uint32_t const id, uint8_t(&msg1)[N1], uint8_t(&msg2)[N2])
+{
+  fuji_send(sockfd, add_message_id(msg1, id));
+  return fuji_send_and_receive(sockfd, id, msg2);
+}
+
+static void login_sequence(int const sockfd) {
   auto const reg_msg = generate_registration_message("HackedClient");
   fuji_send(sockfd, &reg_msg, sizeof(reg_msg));
   LOG_INFO("sent message 1");
@@ -152,22 +205,15 @@ static void login_sequence(int sockfd) {
  
   //
   LOG_INFO("message2");
-  fuji_send(sockfd, message2);
-  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
-  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
-  print_hex(buffer, receivedBytes);
+  fuji_send_and_receive(sockfd, generate_message_id(), message2);
 
   //
   LOG_INFO("message4");
-  fuji_send(sockfd, message4_1);
-  fuji_send(sockfd, message4_2);
-  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
-  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
-  print_hex(buffer, receivedBytes);
+  fuji_send_and_receive(sockfd, generate_message_id(), message4_1, message4_2);
 
   //
   LOG_INFO("message5");
-  fuji_send(sockfd, message5);
+  fuji_send(sockfd, add_message_id(message5, generate_message_id()));
   receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
   LOG_INFO_FORMAT("received %d bytes", receivedBytes);
   print_hex(buffer, receivedBytes);
@@ -177,15 +223,11 @@ static void login_sequence(int sockfd) {
 
   //
   LOG_INFO("message6");
-  fuji_send(sockfd, message6_1);
-  fuji_send(sockfd, message6_2);
-  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
-  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
-  print_hex(buffer, receivedBytes);
+  fuji_send_and_receive(sockfd, generate_message_id(), message6_1, message6_2);
 
   //
   LOG_INFO("message9");
-  fuji_send(sockfd, message9);
+  fuji_send(sockfd, add_message_id(message9, generate_message_id()));
   receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
   LOG_INFO_FORMAT("received %d bytes", receivedBytes);
   print_hex(buffer, receivedBytes);
@@ -195,34 +237,58 @@ static void login_sequence(int sockfd) {
 
   //
   LOG_INFO("message10");
-  fuji_send(sockfd, message10);
-  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
-  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
-  print_hex(buffer, receivedBytes);
+  fuji_send_and_receive(sockfd, generate_message_id(), message10);
 }
 
-void shutter(int const sockfd) 
+static void print_status(int sockfd)
+{
+    status_request_message msg = generate_status_request_message();
+    fuji_send(sockfd, &msg, sizeof(msg));
+    uint8_t buf[1024];
+    uint32_t receivedBytes = fuji_receive(sockfd, buf);
+    print_hex(buf, receivedBytes);
+    receivedBytes = fuji_receive(sockfd, buf);
+    print_hex(buf, receivedBytes);
+}
+
+bool shutter(int const sockfd) 
 {
   LOG_INFO("shutter");
-  uint8_t const shutter_message_1[] = { 0x01, 0x00, 0x15, 0x10, 0x14, 0x00, 0x00, 0x00, 0x12, 0xd2, 0x00, 0x00 };
-  uint8_t const shutter_message_2[] = { 0x01, 0x00, 0x22, 0x90, 0x15, 0x00, 0x00, 0x00 };
+  uint8_t shutter_message_1[] =
+  {
+    0x01, 0x00, 0x0e, 0x10,
+    0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00
+  };
+  fuji_send_and_receive(sockfd, generate_message_id(), shutter_message_1);
+  return true;
 
-  uint8_t buffer[1024 * 1024];
+  // Not sure why we don't get the image as response to shutter_message_2
+  #if 0
+  uint8_t buffer[20 * 1024];
   uint32_t receivedBytes = 0;
-#if 0
-  LOG_INFO("shutter_message_1");
-  fuji_send(sockfd, shutter_message_1);
-  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
-  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
-  print_hex(buffer, receivedBytes);
-  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
-  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
-  print_hex(buffer, receivedBytes);
-#endif
+  message shutter_message_2;
+  while (1) {
+
+
   LOG_INFO("shutter_message_2");
-  fuji_send(sockfd, shutter_message_1);
+  message shutter_message_2;
+  shutter_message_2.type[0] = 0x22;
+  shutter_message_2.type[1] = 0x90;
+  shutter_message_2.id = generate_message_id();
+  fuji_send(sockfd, &shutter_message_2, sizeof(shutter_message_2));
+
   receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
   LOG_INFO_FORMAT("received %d bytes", receivedBytes);
+  print_hex(buffer, receivedBytes);
+  
+  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
+  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
+  print_hex(buffer, receivedBytes);
+  }
+  return is_success_response(shutter_message_2.id, buffer, receivedBytes);
+  #endif
 }
 
 void image_stream_main(std::atomic<bool>& flag)
@@ -273,7 +339,7 @@ int main()
 
   std::this_thread::sleep_for(std::chrono::seconds(1));
   
-// shutter(sockfd);
+ shutter(sockfd);
 
   std::this_thread::sleep_for(std::chrono::seconds(2));
 
