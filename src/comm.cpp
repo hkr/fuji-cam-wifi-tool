@@ -16,7 +16,38 @@ namespace fcwt {
 
 const char* const server_ipv4_addr = "192.168.0.1";
 
-int connect_to_camera(int port)
+sock::sock(int fd)
+: sockfd(fd)
+{
+}
+
+sock::~sock()
+{ 
+  if (sockfd > 0)
+    close(sockfd);
+}
+
+sock::sock(sock&& other)
+: sockfd(other.sockfd)
+{
+  other.sockfd = 0;
+}
+  
+sock& sock::operator=(sock&& other)
+{
+  sock tmp(std::move(other));
+  swap(tmp);
+  return *this;
+}
+
+void sock::swap(sock& other)
+{
+  int tmp = other.sockfd;
+  sockfd = tmp;
+  other.sockfd = tmp;
+}
+
+sock connect_to_camera(int port)
 {
   const int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 

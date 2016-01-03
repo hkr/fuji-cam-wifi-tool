@@ -86,22 +86,10 @@ bool shutter(int const sockfd)
   #endif
 }
 
-namespace {
-struct sock
-{
-  int sockfd;
-  sock(int fd = 0) : sockfd(fd) {}
-  ~sock() { if (sockfd > 0) close(sockfd); }
-  sock(sock const&) = delete;
-  sock& operator=(sock const&) = delete;
-  operator int() const { return sockfd; }
-};
-} // namespace
-
 void image_stream_main(std::atomic<bool>& flag)
 {
   LOG_INFO("image_stream_main");
-  sock const sockfd2(connect_to_camera(jpg_stream_server_port));
+  sock const sockfd2 = connect_to_camera(jpg_stream_server_port);
 
   std::vector<uint8_t> buffer(1024 * 1024);
 
@@ -132,7 +120,7 @@ void image_stream_main(std::atomic<bool>& flag)
 
 int main()
 {
-  sock const sockfd(connect_to_camera(control_server_port));
+  sock const sockfd = connect_to_camera(control_server_port);
   if (sockfd < 0)
     return 1;
 

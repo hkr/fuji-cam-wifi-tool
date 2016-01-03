@@ -10,7 +10,21 @@ namespace fcwt {
 const int control_server_port = 55740;
 const int jpg_stream_server_port = 55742;
 
-int connect_to_camera(int port);
+class sock
+{
+  int sockfd;
+public:
+  sock(int fd = 0);
+  ~sock();
+  sock(sock const&) = delete;
+  sock& operator=(sock const&) = delete;
+  sock(sock&& other);
+  sock& operator=(sock&& other);
+  void swap(sock& other);
+  operator int() const { return sockfd; }
+};
+
+sock connect_to_camera(int port);
 
 uint32_t to_fuji_size_prefix(uint32_t sizeBytes);
 uint32_t from_fuji_size_prefix(uint32_t sizeBytes);
