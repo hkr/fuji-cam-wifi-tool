@@ -132,7 +132,7 @@ int main()
 
   std::this_thread::sleep_for(std::chrono::seconds(1));
   
- shutter(sockfd);
+  shutter(sockfd);
 
   std::this_thread::sleep_for(std::chrono::seconds(2));
 
