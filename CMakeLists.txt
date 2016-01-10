@@ -1,9 +1,4 @@
 cmake_minimum_required(VERSION 2.8.11)
 
-project(fuji_cam_wifi_tool)
-file(GLOB_RECURSE fuji_cam_wifi_tool_sources ${CMAKE_CURRENT_SOURCE_DIR} src/*.cpp)
-file(GLOB_RECURSE fuji_cam_wifi_tool_headers ${CMAKE_CURRENT_SOURCE_DIR} src/*.hpp)
-
-add_executable(fuji_cam_wifi_tool ${fuji_cam_wifi_tool_sources} ${fuji_cam_wifi_tool_headers})
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+add_subdirectory(lib)
+add_subdirectory(tool)
