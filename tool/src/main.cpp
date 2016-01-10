@@ -160,6 +160,7 @@ int main()
   std::string line;
   while(getline(line))
   {
+      linenoiseHistoryAdd(line.c_str());
       command cmd = parse_command(line);
       /* Do something with the string. */
       switch(cmd)
