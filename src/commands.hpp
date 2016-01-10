@@ -1,30 +1,147 @@
 #ifndef FUJI_CAM_WIFI_TOOL_COMMANDS_HPP
 #define FUJI_CAM_WIFI_TOOL_COMMANDS_HPP
 
+#include <array>
 #include <stdint.h>
+#include <stdio.h>
+#include <assert.h>
 #include "comm.hpp"
 #include "log.hpp"
 
 namespace fcwt {
 
-struct message
+enum class message_type : uint16_t
 {
-    uint16_t index = 1;   // index if this is a multi-part message, not really surea bout the second byte
-    uint8_t type[2];  // not sure about this, might be two separate fields
+    hello               = 0x0000, // the first message sent to the camera, see struct registration_message
+
+    start               = 0x1002, // always the second message, don't know what it does yet
+    stop                = 0x1003, // used before sending terminate
+
+    image_info_by_index = 0x1008,
+    thumbnail_by_index  = 0x100a,
+    shutter             = 0x100e,
+    single_part         = 0x1015,
+    two_part            = 0x1016,
+    full_image          = 0x101b,
+    camera_remote_y     = 0x101c, // last message before camera remote mode is ready, probably some configuration?
+
+    camera_remote_x     = 0x902b, // unknown, used before camera_remote_y
+};
+
+char const* to_string(message_type type);
+
+struct message_header
+{
+    uint16_t index = 1; // all but terminate (0) and two_part_message (2) have 1 here
+    message_type type;
+};
+
+struct message_id
+{
     uint32_t id;
 };
 
+template<size_t PayloadBytes>
+struct static_message_data
+{
+    std::array<uint8_t, PayloadBytes> data;
+};
+
+template<size_t PayloadBytes>
+struct static_message : message_header, message_id, static_message_data<PayloadBytes>
+{
+    constexpr size_t size() const { return sizeof(message_header) + sizeof(message_id) + PayloadBytes; }
+};
+
 uint32_t generate_message_id();
+
+struct status_request_message : static_message<4>
+{
+    status_request_message()
+    {
+        index = 1;
+        type = message_type::single_part;
+        id = 0;
+        data = { 0x12, 0xd2, 0x00, 0x00 };
+    }
+};
+
+template <typename SpecializedMessageType>
+SpecializedMessageType generate()
+{
+    SpecializedMessageType msg = {};
+    msg.id = generate_message_id();
+    return msg;
+}
+
+template <typename... Ts>
+static_message<sizeof...(Ts)> make_static_message(message_type type, Ts&&... bytes)
+{
+    std::array<uint8_t, sizeof...(Ts)> payload = {{static_cast<uint8_t>(bytes)...}};
+    static_message<sizeof...(Ts)> msg;
+    msg.type = type;
+    msg.data = payload;
+    msg.id = generate_message_id();
+    return msg;
+}
+
+template <typename... Ts, size_t PreviousPayloadBytes>
+static_message<sizeof...(Ts)> make_static_message_followup(static_message<PreviousPayloadBytes> const& prevMsg, Ts&&... bytes)
+{
+    std::array<uint8_t, sizeof...(Ts)> payload = {{static_cast<uint8_t>(bytes)...}};
+    static_message<sizeof...(Ts)> msg;
+    msg.type = message_type::two_part;
+    assert(prevMsg.type == message_type::two_part);
+    msg.data = payload;
+    msg.id = prevMsg.id;
+    msg.index = prevMsg.index + 1;
+    return msg;
+}
+
 bool init_control_connection(int sockfd, char const* deviceName);
+void terminate_control_connection(int sockfd);
 
 bool is_success_response(uint32_t const id, void const* buffer, uint32_t const size);
 
-bool fuji_message(int const sockfd, uint32_t const id, void* message, size_t size);
+bool fuji_message(int const sockfd, uint32_t const id, void const* message, size_t size);
 
+// adds message ID, TODO: get rid of this?
+bool fuji_message_fill_id(int const sockfd, uint32_t const id, void* message, size_t size);
+
+// adds message ID, TODO: get rid of this?
 template <size_t N>
-bool fuji_message(int const sockfd, uint32_t const id, uint8_t(&msg)[N])
+bool fuji_message_fill_id(int const sockfd, uint32_t const id, uint8_t(&msg)[N])
 {
     return fuji_message(sockfd, id, msg, N);
+}
+
+template <size_t N>
+bool fuji_message(int const sockfd, const static_message<N>& msg)
+{
+    return fuji_message(sockfd, msg.id, &msg, msg.size());
+}
+
+template <size_t N>
+void print_message(static_message<N> const& msg, append_newline anl = newline)
+{
+    printf("%s(%d) [", to_string(msg.type), static_cast<int>(msg.type));
+    print_hex(&msg, msg.size(), skip_newline);
+    printf("]");
+    if (anl == newline)
+        printf("\n");
+}
+
+template <size_t N>
+void fuji_send(int sockfd, static_message<N> const& msg)
+{
+    printf("send: ");
+    print_message(msg);
+    fuji_send(sockfd, &msg, msg.size());
+}
+
+inline void fuji_send(int sockfd, message_header const& msg)
+{
+    fuji_send(sockfd, &msg, sizeof(message_header));
 }
 
 } // namespace fcwt

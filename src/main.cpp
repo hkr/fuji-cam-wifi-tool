@@ -16,28 +16,9 @@
 
 namespace fcwt {
 
-struct status_request_message : message
-{
-  status_request_message()
-  {
-    index = 1;
-    type[0] = 0x15;
-    type[1] = 0x10;
-    id = 0;
-  }
-  uint8_t const data[4] = { 0x12, 0xd2, 0x00, 0x00 };
-};
-
-status_request_message generate_status_request_message()
-{
-  status_request_message msg = {};
-  msg.id = generate_message_id();
-  return msg;
-}
-
 static void print_status(int sockfd)
 {
-    status_request_message msg = generate_status_request_message();
+    auto const msg = generate<status_request_message>();
     fuji_send(sockfd, &msg, sizeof(msg));
     uint8_t buf[1024];
     uint32_t receivedBytes = fuji_receive(sockfd, buf);
@@ -49,14 +30,7 @@ static void print_status(int sockfd)
 bool shutter(int const sockfd) 
 {
   LOG_INFO("shutter");
-  uint8_t shutter_message_1[] =
-  {
-    0x01, 0x00, 0x0e, 0x10,
-    0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00
-  };
-  fuji_message(sockfd, generate_message_id(), shutter_message_1);
+  fuji_message(sockfd, make_static_message(message_type::shutter, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00));
   return true;
 
   // Not sure why we don't get the image as response to shutter_message_2
@@ -138,6 +112,8 @@ int main()
 
   imageStreamFlag = false;
   imageStreamThread.join();
+
+  terminate_control_connection(sockfd);
 
   return 0;
 }
