@@ -145,7 +145,10 @@ size_t fuji_receive_log(int sockfd, uint8_t (&data)[N])
 
 bool init_control_connection(int const sockfd, char const* deviceName)
 {
-    LOG_INFO("init_control_connection");
+    if (sockfd <= 0)
+      return false;
+
+    LOG_INFO_FORMAT("init_control_connection (socket %d)", sockfd);
     auto const reg_msg = generate_registration_message(deviceName);
     LOG_INFO("send hello");
     fuji_send(sockfd, &reg_msg, sizeof(reg_msg));
@@ -194,10 +197,13 @@ bool init_control_connection(int const sockfd, char const* deviceName)
 
 void terminate_control_connection(int sockfd)
 {
-    LOG_INFO("terminate_control_connection");
-    fuji_message(sockfd, make_static_message(message_type::stop));
-    uint32_t terminate = 0xffffffff;
-    fuji_send(sockfd, &terminate, sizeof(terminate));
+  if (sockfd <= 0)
+    return;
+  
+  LOG_INFO("terminate_control_connection");
+  fuji_message(sockfd, make_static_message(message_type::stop));
+  uint32_t terminate = 0xffffffff;
+  fuji_send(sockfd, &terminate, sizeof(terminate));
 }
 
 bool is_success_response(uint32_t const id, void const* buffer, uint32_t const size)

@@ -15,6 +15,7 @@
 #include <thread>
 #include <chrono>
 #include <vector>
+#include <string>
 
 namespace fcwt {
 
@@ -31,6 +32,9 @@ static void print_status(int sockfd)
 
 bool shutter(int const sockfd) 
 {
+  if (sockfd <= 0)
+    return false;
+
   LOG_INFO("shutter");
   fuji_message(sockfd, make_static_message(message_type::shutter, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00));
   return true;
@@ -94,26 +98,109 @@ void image_stream_main(std::atomic<bool>& flag)
   }
 }
 
+char const* comamndStrings[] =
+{
+  "connect",
+  "shutter",
+  "stream",
+};
+
+enum class command 
+{
+  connect,
+  shutter,
+  stream,
+  unknown,
+  count = unknown
+};
+
+static void completion(char const* buf, linenoiseCompletions* lc)
+{
+  for (int i = 0; i < static_cast<int>(command::count); ++i)
+  {
+    char const* const cmd = comamndStrings[i];
+    if (strstr(cmd, buf) == cmd)
+      linenoiseAddCompletion(lc, cmd);
+  }
+}
+
+bool getline(std::string& line)
+{
+  char* const str = linenoise("fcwt> ");
+  if (!str)
+    return false;
+
+  line.assign(str);
+  free(str);
+  return true;
+}
+
+command parse_command(std::string const& line)
+{
+  for (int i = 0; i < static_cast<int>(command::count); ++i)
+  {
+    if (line == comamndStrings[i])
+      return static_cast<command>(i);
+  }
+  
+  return command::unknown;
+}
+
 int main()
 {
-  sock const sockfd = connect_to_camera(control_server_port);
-  if (sockfd < 0)
-    return 1;
 
-  if (!init_control_connection(sockfd, "HackedClient"))
-    return 1;
-  
+  /* Set the completion callback. This will be called every time the
+   * user uses the <tab> key. */
+  linenoiseSetCompletionCallback(completion);
+
+  sock sockfd;
   std::atomic<bool> imageStreamFlag(true);
-  std::thread imageStreamThread([&]() { image_stream_main(imageStreamFlag); });
+  std::thread imageStreamThread;
 
-  std::this_thread::sleep_for(std::chrono::seconds(1));
-  
-  shutter(sockfd);
+  std::string line;
+  while(getline(line))
+  {
+      command cmd = parse_command(line);
+      /* Do something with the string. */
+      switch(cmd)
+      {
+        case command::connect:
+        {
+          if (sockfd <= 0)
+          {
+            sockfd = connect_to_camera(control_server_port);
+            if (!init_control_connection(sockfd, "HackedClient"))
+              printf("failure\n");
+          }
+          else
+          {
+            printf("already connected\n");
+          }
+        }
+        break;
+      case command::shutter:
+      {
+        if (!shutter(sockfd))
+          printf("failure\n");
+      }
+      break;
+      case command::stream:
+      {
+        imageStreamThread = std::thread(([&]() { image_stream_main(imageStreamFlag); }));
+      }
+      break;
+      default:
+      {
+        printf("Unreconized command: %s\n", line.c_str());
+      }
+    }
+  }
 
-  std::this_thread::sleep_for(std::chrono::seconds(2));
-
-  imageStreamFlag = false;
-  imageStreamThread.join();
+  if (imageStreamThread.joinable())
+  {
+    imageStreamFlag = false;
+    imageStreamThread.join();
+  }
 
   terminate_control_connection(sockfd);
 
