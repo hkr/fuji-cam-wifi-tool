@@ -263,6 +263,7 @@ char const* to_string(message_type type)
         MESSAGE_TYPE_TO_STRING_CASE(two_part);
         MESSAGE_TYPE_TO_STRING_CASE(full_image);
         MESSAGE_TYPE_TO_STRING_CASE(camera_remote);
+        MESSAGE_TYPE_TO_STRING_CASE(camera_last_image);
         MESSAGE_TYPE_TO_STRING_CASE(camera_remote_x);
         default: return "";
     }
@@ -274,33 +275,32 @@ bool shutter(int const sockfd)
     return false;
 
   LOG_INFO("shutter");
-  fuji_message(sockfd, make_static_message(message_type::shutter, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00));
-  return true;
+  return fuji_message(sockfd, make_static_message(message_type::shutter, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00));
 
-  // Not sure why we don't get the image as response to shutter_message_2
   #if 0
+  // Not sure why we don't get the image as response
   uint8_t buffer[20 * 1024];
   uint32_t receivedBytes = 0;
-  message shutter_message_2;
-  while (1) {
 
+  uint32_t lastMsgId = 0;
+  bool retry = true;
+  while (retry)
+  {
+    LOG_INFO("shutter_message_2");
+    auto const reqImg = make_static_message(message_type::camera_last_image);
+    lastMsgId = reqImg.id;
+    fuji_send(sockfd, reqImg);
 
-  LOG_INFO("shutter_message_2");
-  message shutter_message_2;
-  shutter_message_2.type[0] = 0x22;
-  shutter_message_2.type[1] = 0x90;
-  shutter_message_2.id = generate_message_id();
-  fuji_send(sockfd, &shutter_message_2, sizeof(shutter_message_2));
-
-  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
-  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
-  print_hex(buffer, receivedBytes);
-  
-  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
-  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
-  print_hex(buffer, receivedBytes);
+    receivedBytes = fuji_receive(sockfd, buffer);
+    LOG_INFO_FORMAT("received %d bytes", receivedBytes);
+    print_hex(buffer, receivedBytes);
+    retry = receivedBytes <= 8;
+    
+    receivedBytes = fuji_receive(sockfd, buffer);
+    LOG_INFO_FORMAT("received %d bytes", receivedBytes);
+    print_hex(buffer, receivedBytes);
   }
-  return is_success_response(shutter_message_2.id, buffer, receivedBytes);
+  return is_success_response(lastMsgId, buffer, receivedBytes);
   #endif
 }
 
