@@ -24,7 +24,9 @@ sock::sock(int fd)
 sock::~sock()
 { 
   if (sockfd > 0)
+  {
     close(sockfd);
+  }
 }
 
 sock::sock(sock&& other)
@@ -43,8 +45,8 @@ sock& sock::operator=(sock&& other)
 void sock::swap(sock& other)
 {
   int tmp = other.sockfd;
+  other.sockfd = sockfd;
   sockfd = tmp;
-  other.sockfd = tmp;
 }
 
 sock connect_to_camera(int port)
@@ -54,8 +56,6 @@ sock connect_to_camera(int port)
   if (sockfd < 0)
     fatal_error("Failed to create socket\n");
 
-  LOG_INFO("Connection esatablished");
-
   sockaddr_in sa = {};
   sa.sin_family = AF_INET;
   sa.sin_port = htons(port);
@@ -63,6 +63,8 @@ sock connect_to_camera(int port)
 
   if (connect(sockfd, reinterpret_cast<sockaddr*>(&sa), sizeof(sa)) < 0) 
     fatal_error("ERROR connecting");
+
+  LOG_INFO_FORMAT("Connection esatablished (socket %d)", sockfd);
 
   return sockfd;
 }
