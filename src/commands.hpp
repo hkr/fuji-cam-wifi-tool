@@ -23,9 +23,9 @@ enum class message_type : uint16_t
     single_part         = 0x1015,
     two_part            = 0x1016,
     full_image          = 0x101b,
-    camera_remote_y     = 0x101c, // last message before camera remote mode is ready, probably some configuration?
+    camera_remote       = 0x101c, // last command before camera remote works
 
-    camera_remote_x     = 0x902b, // unknown, used before camera_remote_y
+    camera_remote_x     = 0x902b, // unknown, app uses it before camera_remote, returns 392 bytes of data, maybe the current settings?
 };
 
 char const* to_string(message_type type);
@@ -55,6 +55,8 @@ struct static_message : message_header, message_id, static_message_data<PayloadB
 
 uint32_t generate_message_id();
 
+// name is just a guess, the app uses this a lot, maybe the cam uses it as some kind of heart-beat?
+// returns 124 bytes of data (I think somethime differs from that, can't remember)
 struct status_request_message : static_message<4>
 {
     status_request_message()
@@ -105,19 +107,11 @@ bool is_success_response(uint32_t const id, void const* buffer, uint32_t const s
 
 bool fuji_message(int const sockfd, uint32_t const id, void const* message, size_t size);
 
-// adds message ID, TODO: get rid of this?
-bool fuji_message_fill_id(int const sockfd, uint32_t const id, void* message, size_t size);
-
-// adds message ID, TODO: get rid of this?
-template <size_t N>
-bool fuji_message_fill_id(int const sockfd, uint32_t const id, uint8_t(&msg)[N])
-{
-    return fuji_message(sockfd, id, msg, N);
-}
-
 template <size_t N>
 bool fuji_message(int const sockfd, const static_message<N>& msg)
 {
+    printf("send: ");
+    print_message(msg);
     return fuji_message(sockfd, msg.id, &msg, msg.size());
 }
 

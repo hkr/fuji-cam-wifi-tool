@@ -130,16 +130,9 @@ uint8_t message10[] =
 // -> 10:00:00:00: 03:00:01:20: 91:00:00:00: 79:da:09:00 // image complete
 
 template <size_t N1, size_t N2>
-static bool fuji_twopart_message(int const sockfd, uint32_t const id, uint8_t(&msg1)[N1], uint8_t(&msg2)[N2])
-{
-  fuji_send(sockfd, fill_message_id(id, msg1));
-  return fuji_message_fill_id(sockfd, id, msg2);
-}
-
-template <size_t N1, size_t N2>
 static bool fuji_twopart_message(int const sockfd, static_message<N1> const& msg1, static_message<N2> const& msg2)
 {
-  fuji_send(sockfd, &msg1, sizeof(msg1));
+  fuji_send(sockfd, msg1);
   return fuji_message(sockfd, msg2);
 }
 
@@ -157,6 +150,7 @@ size_t fuji_receive_log(int sockfd, uint8_t (&data)[N])
 
 bool init_control_connection(int const sockfd, char const* deviceName)
 {
+    LOG_INFO("init_control_connection");
     auto const reg_msg = generate_registration_message(deviceName);
     LOG_INFO("send hello");
     fuji_send(sockfd, &reg_msg, sizeof(reg_msg));
@@ -196,7 +190,7 @@ bool init_control_connection(int const sockfd, char const* deviceName)
     fuji_receive_log(sockfd, buffer);
     fuji_receive_log(sockfd, buffer);
 
-    fuji_message(sockfd, make_static_message(message_type::camera_remote_y, 
+    fuji_message(sockfd, make_static_message(message_type::camera_remote, 
         0x00, 0x00, 0x00, 0x00, 
         0x00, 0x00, 0x00, 0x00));
 
@@ -205,6 +199,7 @@ bool init_control_connection(int const sockfd, char const* deviceName)
 
 void terminate_control_connection(int sockfd)
 {
+    LOG_INFO("terminate_control_connection");
     fuji_message(sockfd, make_static_message(message_type::stop));
     uint32_t terminate = 0xffffffff;
     fuji_send(sockfd, &terminate, sizeof(terminate));
@@ -239,7 +234,7 @@ bool fuji_message(int const sockfd, uint32_t const id, void const* message, size
     fuji_send(sockfd, message, size);
 
     uint8_t buffer[8];
-    uint32_t receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
+    uint32_t receivedBytes = fuji_receive_log(sockfd, buffer);
 
     if (!is_success_response(id, buffer, receivedBytes))
     {
@@ -251,15 +246,23 @@ bool fuji_message(int const sockfd, uint32_t const id, void const* message, size
     return true;
 }
 
-bool fuji_message_fill_id(int const sockfd, uint32_t const id, void* message, size_t size)
-{
-    return fuji_message(sockfd, id, fill_message_id(id, message, size), size);
-}
+#define MESSAGE_TYPE_TO_STRING_CASE(x) case message_type::x: return #x
 
 char const* to_string(message_type type)
 {
     switch(type)
     {
+        MESSAGE_TYPE_TO_STRING_CASE(hello);
+        MESSAGE_TYPE_TO_STRING_CASE(start);
+        MESSAGE_TYPE_TO_STRING_CASE(stop);
+        MESSAGE_TYPE_TO_STRING_CASE(image_info_by_index);
+        MESSAGE_TYPE_TO_STRING_CASE(thumbnail_by_index);
+        MESSAGE_TYPE_TO_STRING_CASE(shutter);
+        MESSAGE_TYPE_TO_STRING_CASE(single_part);
+        MESSAGE_TYPE_TO_STRING_CASE(two_part);
+        MESSAGE_TYPE_TO_STRING_CASE(full_image);
+        MESSAGE_TYPE_TO_STRING_CASE(camera_remote);
+        MESSAGE_TYPE_TO_STRING_CASE(camera_remote_x);
         default: return "";
     }
 }
