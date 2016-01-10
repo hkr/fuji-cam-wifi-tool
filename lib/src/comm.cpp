@@ -9,6 +9,11 @@
 #include <arpa/inet.h> 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/select.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #include "log.hpp"
 
@@ -51,22 +56,45 @@ void sock::swap(sock& other)
 
 sock connect_to_camera(int port)
 {
-  const int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  // TODO: proper error handling
 
+  const int sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd < 0)
     fatal_error("Failed to create socket\n");
+
+  fcntl(sockfd, F_SETFL, O_NONBLOCK); // for timeout
 
   sockaddr_in sa = {};
   sa.sin_family = AF_INET;
   sa.sin_port = htons(port);
   inet_pton(AF_INET, server_ipv4_addr, &sa.sin_addr);
+  connect(sockfd, reinterpret_cast<sockaddr*>(&sa), sizeof(sa));
 
-  if (connect(sockfd, reinterpret_cast<sockaddr*>(&sa), sizeof(sa)) < 0) 
-    fatal_error("ERROR connecting");
+  // timeout handling
+  fd_set fdset;
+  FD_ZERO(&fdset);
+  FD_SET(sockfd, &fdset);
+  struct timeval tv = {};
+  tv.tv_sec = 1;
+  tv.tv_usec = 0;
 
-  LOG_INFO_FORMAT("Connection esatablished (socket %d)", sockfd);
+  if (select(sockfd + 1, NULL, &fdset, NULL, &tv) == 1)
+  {
+      int so_error = 0;
+      socklen_t len = sizeof so_error;
+      getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &so_error, &len);
 
-  return sockfd;
+      if (so_error == 0)
+      {
+        printf("Connection esatablished %s:%d (%d)\n", server_ipv4_addr, port, sockfd);
+        fcntl(sockfd, F_SETFL, 0);
+        return sockfd;
+      }
+  }
+  
+  printf("Failed to connect\n");
+  close(sockfd);
+  return 0;
 }
 
 uint32_t to_fuji_size_prefix(uint32_t sizeBytes) {
