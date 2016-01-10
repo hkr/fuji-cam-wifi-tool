@@ -30,42 +30,6 @@ static void print_status(int sockfd)
     print_hex(buf, receivedBytes);
 }
 
-bool shutter(int const sockfd) 
-{
-  if (sockfd <= 0)
-    return false;
-
-  LOG_INFO("shutter");
-  fuji_message(sockfd, make_static_message(message_type::shutter, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00));
-  return true;
-
-  // Not sure why we don't get the image as response to shutter_message_2
-  #if 0
-  uint8_t buffer[20 * 1024];
-  uint32_t receivedBytes = 0;
-  message shutter_message_2;
-  while (1) {
-
-
-  LOG_INFO("shutter_message_2");
-  message shutter_message_2;
-  shutter_message_2.type[0] = 0x22;
-  shutter_message_2.type[1] = 0x90;
-  shutter_message_2.id = generate_message_id();
-  fuji_send(sockfd, &shutter_message_2, sizeof(shutter_message_2));
-
-  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
-  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
-  print_hex(buffer, receivedBytes);
-  
-  receivedBytes = fuji_receive(sockfd, buffer, sizeof(buffer));
-  LOG_INFO_FORMAT("received %d bytes", receivedBytes);
-  print_hex(buffer, receivedBytes);
-  }
-  return is_success_response(shutter_message_2.id, buffer, receivedBytes);
-  #endif
-}
-
 void image_stream_main(std::atomic<bool>& flag)
 {
   LOG_INFO("image_stream_main");

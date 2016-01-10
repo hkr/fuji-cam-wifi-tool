@@ -102,6 +102,7 @@ static_message<sizeof...(Ts)> make_static_message_followup(static_message<Previo
 
 bool init_control_connection(int sockfd, char const* deviceName);
 void terminate_control_connection(int sockfd);
+bool shutter(int const sockfd);
 
 bool is_success_response(uint32_t const id, void const* buffer, uint32_t const size);
 
