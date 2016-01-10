@@ -10,6 +10,8 @@
 #include "comm.hpp"
 #include "commands.hpp"
 
+#include "linenoise/linenoise.h"
+
 #include <thread>
 #include <chrono>
 #include <vector>
