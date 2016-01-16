@@ -8,7 +8,7 @@ namespace fcwt {
 void print_hex(void const* data, size_t const sizeBytes, append_newline anl)
 {
     size_t i = 0;
-    for (;;)
+    while (i < sizeBytes)
     {
         printf("%02X", static_cast<unsigned char const*>(data)[i]);
         ++i;
@@ -19,6 +19,20 @@ void print_hex(void const* data, size_t const sizeBytes, append_newline anl)
             printf(" ");
         else
             printf(":");
+    }
+
+    if (anl == newline)
+        printf("\n");
+}
+
+void print_ascii(void const* data, size_t const sizeBytes, append_newline anl)
+{
+    for (size_t i = 0; i < sizeBytes; ++i)
+    {
+        char c = static_cast<char const*>(data)[i];
+        if (c < ' ' || c > '~')
+            c = '.';
+        printf("%c", c);
     }
 
     if (anl == newline)
