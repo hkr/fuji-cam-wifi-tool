@@ -36,7 +36,6 @@ static void print_status(int sockfd)
       uint32_t iso, white_balance, film_simulation, autofocus_point, flash, image_format_unknown, image_size_aspect, image_format;
       memcpy(&flash, &buf[8 + 8], 4);
       memcpy(&iso, &buf[8 + 58], 4);
-      memcpy(&white_balance, &buf[8 + 76], 4);
       memcpy(&white_balance, &buf[8 + 88], 4);
       memcpy(&film_simulation, &buf[8 + 92], 4);
       memcpy(&autofocus_point, &buf[8 + 104], 4); // only seems to work for single point, have not found data for 'zone' yet
