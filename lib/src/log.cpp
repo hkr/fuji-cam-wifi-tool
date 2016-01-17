@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <algorithm>
+#include <string.h>
 
 namespace fcwt {
 
@@ -41,35 +42,23 @@ void print_ascii(void const* data, size_t const sizeBytes, append_newline anl)
 
 void print_uint32(void const* data, size_t sizeBytes, append_newline anl)
 {
-	// unaligned bytes
-	size_t unalignedByteCount = std::min(reinterpret_cast<uintptr_t>(data) % sizeof(uintptr_t), sizeBytes);
-	print_hex(data, unalignedByteCount, skip_newline);
-
-	if (unalignedByteCount >= sizeBytes)
-		return;
-
-	if (unalignedByteCount > 0)
-		printf(" ");
-
-	data = static_cast<uint8_t const*>(data) + unalignedByteCount;
-	sizeBytes -= unalignedByteCount;
-	auto const ints = static_cast<uint32_t const*>(data);
-
-	// actual ints
+    auto bytes = static_cast<uint8_t const*>(data);
 	int const numInts = sizeBytes / 4;
     for (int i = 0; i < numInts; ++i)
     {
+        uint32_t u;
+        memcpy(&u, &bytes[i * 4], 4);
     	if (i > 0)
-    		printf("%u", ints[i]);
+    		printf("%u\n", u);
     	else
-        	printf(" %u", ints[i]);
+        	printf("%u\n", u);
     }
 
     // remaining bytes
     auto const remainingBytes = sizeBytes % 4;
     if (remainingBytes > 0)
     	printf(" ");
-    print_hex(&ints[numInts], sizeBytes % 4, anl);
+    print_hex(&bytes[numInts * 4], remainingBytes, anl);
 }
 
 void fatal_error(char const* msg)

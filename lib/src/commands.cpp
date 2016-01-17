@@ -141,6 +141,182 @@ size_t fuji_receive_log(int sockfd, uint8_t (&data)[N])
     return size;
 }
 
+void print_camera_caps_submessage(uint8_t const* data, size_t const size)
+{
+  if (size < 4)
+    return;
+
+  struct submessage_type
+  {
+    uint16_t x, y;
+  };
+  submessage_type type = {};
+  memcpy(&type, data, sizeof(type));
+
+  switch (type.y)
+  {
+    default:
+    {
+      printf("printf_camera_caps_submessage, unknown type (%04X/%04X)\n", static_cast<int>(type.x), static_cast<int>(type.y));
+      print_hex(data, size);
+    }
+    break;
+    case 3:
+    {
+      switch (type.x)
+      {
+        default: printf("printf_camera_caps_submessage, unknown type (%04X/%04X)\n", static_cast<int>(type.x), static_cast<int>(type.y));
+        case 0x5010: // Shutter speed auto
+        {
+          printf("Shutter speed auto: ");
+          print_hex(data, size);
+          // +1/3   4D 01
+          // +1     EB 03
+          // -1     18 FC
+          // -1 1/3 CB FA
+          // -3     48 F4
+          struct shutter_speed_auto
+          {
+            uint8_t unknown0[3];
+            uint8_t exposure_compensation_dial_unknown; // this changes when turning the dial, don't know what it means
+            int8_t exposure_compensation_dial_value; // doesn't match the number on the dial, but whatever
+            // more data here
+          };
+          auto ssa = reinterpret_cast<shutter_speed_auto const*>(data + 4);
+          printf("Exposure compensation: %d %01X\n", static_cast<int>(ssa->exposure_compensation_dial_value), ssa->exposure_compensation_dial_unknown);
+        }
+
+        break;
+      }
+    }
+    break;
+
+    case 4:
+    {
+      switch (type.x)
+      {
+        case 0x5007:
+        {
+          uint16_t aperture;
+          memcpy(&aperture, data + 7, 2);
+          printf("Aperture: %d\n", static_cast<int>(aperture));
+          print_hex(data + 4, size - 4);
+        }
+        break;
+        default: printf("printf_camera_caps_submessage, unknown type (%04X/%04X)\n", static_cast<int>(type.x), static_cast<int>(type.y));
+        case 0x5012:
+        case 0x500C:
+        case 0x5005:
+        case 0xD001:
+        case 0xD019:
+        {
+          printf("Submessage: ");
+          print_hex(data, size);
+        }
+        break;
+      }
+    }
+    break;
+
+    case 6:
+    {
+      switch (type.x)
+      {
+        case 0xD02A:
+        {
+          printf("ISO-Levels:\n");
+          print_uint32(data + 4, size - 4);
+        }
+        break;
+
+        case 0xD240:
+        {
+          // don't know what caps.shutter_speed[1] means
+          #if 0
+          B: Shutter speed: 1/30s 255 00020200
+          T: Shutter speed: 1/4000s 255 00020280
+          1: Shutter speed: 1/1s 255 00020200
+          2: Shutter speed: 1/2s 255 00020280
+          180x: Shutter speed: 1/180s 255 00020280
+          Shutter speed: 1/250s 255 00020280
+          A: Shutter speed: 1/0s 3 07070000
+          #endif
+          printf("Shutter-speed:\n");
+          struct shutter_speed_status
+          {
+            uint32_t unknown0;
+            uint32_t shutter_speed[2];
+            uint32_t unknown1[2];
+          };
+          print_uint32(data + 4, size - 4);
+          print_hex(data + 4, size - 4);
+          assert(size == sizeof(shutter_speed_status) + 4);
+          shutter_speed_status shutterStatus;
+          memcpy(&shutterStatus, data + 4, sizeof(shutterStatus));
+          int x = static_cast<uint8_t>(shutterStatus.shutter_speed[0]);
+          if (x == 3)
+            printf("Shutter speed: auto %08X %08X\n", shutterStatus.shutter_speed[0], shutterStatus.shutter_speed[1]);
+          else
+            printf("Shutter speed: 1/%us %d %08X\n", (shutterStatus.shutter_speed[0] >> 8) / 1000, x, shutterStatus.shutter_speed[1]);
+        }
+        break;
+        case 0xD17C:
+        {
+          printf("Autofocus: ");
+          print_hex(data + 4, size - 4);
+        }
+        break;
+
+        default: printf("printf_camera_caps_submessage, unknown type (%04X/%04X)\n", static_cast<int>(type.x), static_cast<int>(type.y));
+        break;
+      }
+    }
+    break;
+  }
+}
+
+void print_camera_caps(void const* data, size_t const size)
+{
+  size_t remainingBytes = size;
+  uint8_t const* bytes = static_cast<uint8_t const*>(data);
+  if (remainingBytes < 12)
+    return;
+  bytes += 12; // 12 bytes unknown
+  remainingBytes -= 12;
+
+  while (remainingBytes > 0)
+  {
+    // sub-message size
+    if (remainingBytes < 4)
+    {
+      printf("Inconsistent message when getting next submessage(remaingBytes=%zu)\n", remainingBytes);
+      break;
+    }
+    uint32_t subMsgSize = 0;
+    memcpy(&subMsgSize, bytes, sizeof(subMsgSize));
+    if (subMsgSize < 4)
+    {
+      printf("Inconsistent submessage(subMsgSize=%d)\n", subMsgSize);
+      break;
+    }
+    subMsgSize -= 4;
+    bytes += sizeof(subMsgSize);
+    remainingBytes -= sizeof(subMsgSize);
+
+    // sub-message actual sub-message
+    if (remainingBytes < subMsgSize)
+    {
+      printf("Inconsistent message (subMsgSize=%d)\n", subMsgSize);
+      break;
+    }
+
+    print_camera_caps_submessage(bytes, subMsgSize);
+
+    bytes += subMsgSize;
+    remainingBytes -= subMsgSize;
+  }
+}
+
 } // namespace
 
 bool init_control_connection(int const sockfd, char const* deviceName)
@@ -185,7 +361,12 @@ bool init_control_connection(int const sockfd, char const* deviceName)
     fuji_twopart_message(sockfd, msg6_1, msg6_2);
 
     fuji_send(sockfd, make_static_message(message_type::camera_remote_x));
-    fuji_receive_log(sockfd, buffer);
+    auto size = fuji_receive_log(sockfd, buffer);
+    print_uint32(buffer, size);
+    print_ascii(buffer, size);
+
+    print_camera_caps(buffer, size);
+
     fuji_receive_log(sockfd, buffer);
 
     fuji_message(sockfd, make_static_message(message_type::camera_remote, 

@@ -26,8 +26,12 @@ static void print_status(int sockfd)
     uint8_t buf[1024];
     uint32_t receivedBytes = fuji_receive(sockfd, buf);
     print_hex(buf, receivedBytes);
+    print_uint32(buf, receivedBytes);
+    print_ascii(buf, receivedBytes);
     receivedBytes = fuji_receive(sockfd, buf);
     print_hex(buf, receivedBytes);
+    print_uint32(buf, receivedBytes);
+    print_ascii(buf, receivedBytes);
 }
 
 void image_stream_main(std::atomic<bool>& flag)
@@ -136,6 +140,8 @@ int main()
             sockfd = connect_to_camera(control_server_port);
             if (!init_control_connection(sockfd, "HackedClient"))
               printf("failure\n");
+            else
+              print_status(sockfd);
           }
           else
           {
@@ -147,6 +153,8 @@ int main()
       {
         if (!shutter(sockfd))
           printf("failure\n");
+        print_status(sockfd);
+
       }
       break;
       case command::stream:
