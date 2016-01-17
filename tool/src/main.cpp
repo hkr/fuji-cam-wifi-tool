@@ -22,16 +22,32 @@ namespace fcwt {
 static void print_status(int sockfd)
 {
     auto const msg = generate<status_request_message>();
+    printf("Status request %d\n", msg.id);
     fuji_send(sockfd, &msg, sizeof(msg));
     uint8_t buf[1024];
     uint32_t receivedBytes = fuji_receive(sockfd, buf);
+    printf("Status: %d bytes\n", receivedBytes);
     print_hex(buf, receivedBytes);
     print_uint32(buf, receivedBytes);
     print_ascii(buf, receivedBytes);
+
+    if (receivedBytes >= 124)
+    {
+      uint32_t iso, white_balance, film_simulation, autofocus_point, flash;
+      memcpy(&flash, &buf[8 + 8], 4);
+      memcpy(&iso, &buf[8 + 58], 4);
+      memcpy(&white_balance, &buf[8 + 88], 4);
+      memcpy(&film_simulation, &buf[8 + 92], 4);
+      memcpy(&autofocus_point, &buf[8 + 104], 4); // only seems to work for single point, have not found data for 'zone' yet
+
+      printf("iso=%u (%u) raw=%u\n", iso & 0xffff, iso >> 16, iso);
+      printf("white_balance=%d\n", white_balance);
+      printf("film_simulation=%u raw=%08X\n", film_simulation >> 16, film_simulation);
+      printf("autofocus_point(x/y)=(%u,%u) raw=%08X\n", autofocus_point >> 24, (autofocus_point >> 16) & 0xff, autofocus_point);
+      printf("flash raw=%08X\n", flash);
+    }
+
     receivedBytes = fuji_receive(sockfd, buf);
-    print_hex(buf, receivedBytes);
-    print_uint32(buf, receivedBytes);
-    print_ascii(buf, receivedBytes);
 }
 
 void image_stream_main(std::atomic<bool>& flag)
@@ -71,6 +87,7 @@ char const* comamndStrings[] =
   "connect",
   "shutter",
   "stream",
+  "info"
 };
 
 enum class command 
@@ -78,6 +95,7 @@ enum class command
   connect,
   shutter,
   stream,
+  info,
   unknown,
   count = unknown
 };
@@ -157,11 +175,19 @@ int main()
 
       }
       break;
+
       case command::stream:
       {
         imageStreamThread = std::thread(([&]() { image_stream_main(imageStreamFlag); }));
       }
       break;
+
+      case command::info:
+      {
+        print_status(sockfd);
+      }
+      break;
+
       default:
       {
         printf("Unreconized command: %s\n", line.c_str());
