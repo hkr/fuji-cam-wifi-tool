@@ -77,35 +77,60 @@ SpecializedMessageType generate()
     return msg;
 }
 
-template <typename... Ts>
-static_message<sizeof...(Ts)> make_static_message(message_type type, Ts&&... bytes)
+inline std::array<uint8_t, 4> make_byte_array(uint32_t x)
 {
-    std::array<uint8_t, sizeof...(Ts)> payload = {{static_cast<uint8_t>(bytes)...}};
-    static_message<sizeof...(Ts)> msg;
+    return {{
+        static_cast<uint8_t>(x), 
+        static_cast<uint8_t>(x >> 8), 
+        static_cast<uint8_t>(x >> 16), 
+        static_cast<uint8_t>(x >> 24)
+    }};
+}
+
+template <size_t N>
+static_message<N> make_static_message(message_type type, std::array<uint8_t, N> const& data)
+{
+    static_message<N> msg;
     msg.type = type;
-    msg.data = payload;
+    msg.data = data;
     msg.id = generate_message_id();
     return msg;
 }
 
-template <typename... Ts, size_t PreviousPayloadBytes>
-static_message<sizeof...(Ts)> make_static_message_followup(static_message<PreviousPayloadBytes> const& prevMsg, Ts&&... bytes)
+template <typename... Ts>
+static_message<sizeof...(Ts)> make_static_message(message_type type, Ts... bytes)
 {
     std::array<uint8_t, sizeof...(Ts)> payload = {{static_cast<uint8_t>(bytes)...}};
-    static_message<sizeof...(Ts)> msg;
+    return make_static_message(type, payload);
+}
+
+template <size_t N, size_t PreviousPayloadBytes>
+static_message<N> make_static_message_followup(static_message<PreviousPayloadBytes> const& prevMsg, std::array<uint8_t, N> const& data)
+{
+    static_message<N> msg;
     msg.type = message_type::two_part;
     assert(prevMsg.type == message_type::two_part);
-    msg.data = payload;
+    msg.data = data;
     msg.id = prevMsg.id;
     msg.index = prevMsg.index + 1;
     return msg;
 }
 
-bool init_control_connection(int sockfd, char const* deviceName);
-void terminate_control_connection(int sockfd);
-bool shutter(int const sockfd);
+template <typename... Ts, size_t PreviousPayloadBytes>
+static_message<sizeof...(Ts)> make_static_message_followup(static_message<PreviousPayloadBytes> const& prevMsg, Ts... bytes)
+{
+    std::array<uint8_t, sizeof...(Ts)> payload = {{static_cast<uint8_t>(bytes)...}};
+    return make_static_message_followup(prevMsg, payload);
+}
 
 bool is_success_response(uint32_t const id, void const* buffer, uint32_t const size);
+
+bool init_control_connection(int sockfd, char const* deviceName);
+void terminate_control_connection(int sockfd);
+
+bool shutter(int const sockfd);
+bool set_iso(int sockfd, uint32_t iso);
+
 
 bool fuji_message(int const sockfd, uint32_t const id, void const* message, size_t size);
 

@@ -319,6 +319,13 @@ void print_camera_caps(void const* data, size_t const size)
 
 } // namespace
 
+bool set_iso(int sockfd, uint32_t iso)
+{
+    auto const msg_1 = make_static_message(message_type::two_part, 0x2A, 0xD0, 0x00, 0x00);
+    auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(iso));
+    return fuji_twopart_message(sockfd, msg_1, msg_2);
+}
+
 bool init_control_connection(int const sockfd, char const* deviceName)
 {
     if (sockfd <= 0)

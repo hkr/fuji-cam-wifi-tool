@@ -31,7 +31,7 @@ static void print_status(int sockfd)
     print_uint32(buf, receivedBytes);
     print_ascii(buf, receivedBytes);
 
-    if (receivedBytes >= 124)
+    if (receivedBytes >= 112)
     {
       uint32_t iso, white_balance, film_simulation, autofocus_point, flash, image_format_unknown, image_size_aspect, image_format;
       memcpy(&flash, &buf[8 + 8], 4);
@@ -93,7 +93,8 @@ char const* comamndStrings[] =
   "connect",
   "shutter",
   "stream",
-  "info"
+  "info",
+  "set_iso"
 };
 
 enum class command 
@@ -102,6 +103,7 @@ enum class command
   shutter,
   stream,
   info,
+  set_iso,
   unknown,
   count = unknown
 };
@@ -138,6 +140,24 @@ command parse_command(std::string const& line)
   return command::unknown;
 }
 
+std::vector<std::string> split(std::string const& str, int delimiter(int) = ::isspace)
+{
+  std::vector<std::string> result;
+  auto const itEnd = str.end();
+  auto it = str.begin();
+  while(it != itEnd)
+  {
+    it = std::find_if_not(it, itEnd, delimiter);
+    if(it == itEnd) 
+      break;
+
+    auto const it2 = std::find_if(it, itEnd, delimiter);
+    result.emplace_back(it, it2);
+    it = it2;
+  }
+  return result;
+}
+
 int main()
 {
 
@@ -153,8 +173,11 @@ int main()
   while(getline(line))
   {
       linenoiseHistoryAdd(line.c_str());
-      command cmd = parse_command(line);
-      /* Do something with the string. */
+      auto const splitLine = split(line);
+      if (splitLine.empty())
+        continue;
+
+      command cmd = parse_command(splitLine[0]);
       switch(cmd)
       {
         case command::connect:
@@ -191,6 +214,24 @@ int main()
       case command::info:
       {
         print_status(sockfd);
+      }
+      break;
+
+      case command::set_iso:
+      {
+        if (splitLine.size() > 1)
+        {
+          unsigned long iso = std::stoul(splitLine[1]);
+          printf("%s(%lu)\n", splitLine[0].c_str(), iso);
+          if (set_iso(sockfd, iso))
+          {
+            print_status(sockfd);
+          }
+          else
+          {
+            printf("Failed to set ISO %lu\n", iso);
+          }
+        }
       }
       break;
 
