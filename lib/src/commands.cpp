@@ -124,7 +124,7 @@ uint8_t message10[] =
 //    18:00:00:00: 01:00:1b:10: 91:00:00:00: 11:00:00:00: 00:00:00:00: 79:da:09:00 // last int is image id?
 // -> 10:00:00:00: 03:00:01:20: 91:00:00:00: 79:da:09:00 // image complete
 
-void print_camera_caps_submessage(uint8_t const* data, size_t const size)
+void parse_camera_caps_submessage(camera_capabilities& caps, uint8_t const* data, size_t const size)
 {
   if (size < 4)
     return;
@@ -151,7 +151,6 @@ void print_camera_caps_submessage(uint8_t const* data, size_t const size)
         default: printf("printf_camera_caps_submessage, unknown type (%04X/%04X)\n", static_cast<int>(type.x), static_cast<int>(type.y));
         case 0x5010: // Shutter speed auto
         {
-          printf("Shutter speed auto: ");
           print_hex(data, size);
           // +1/3   4D 01
           // +1     EB 03
@@ -165,8 +164,10 @@ void print_camera_caps_submessage(uint8_t const* data, size_t const size)
             int8_t exposure_compensation_dial_value; // doesn't match the number on the dial, but whatever
             // more data here
           };
-          auto ssa = reinterpret_cast<shutter_speed_auto const*>(data + 4);
-          printf("Exposure compensation: %d %01X\n", static_cast<int>(ssa->exposure_compensation_dial_value), ssa->exposure_compensation_dial_unknown);
+          shutter_speed_auto ssa;
+          memcpy(&ssa, data + 4, sizeof(shutter_speed_auto));
+          //printf("Exposure compensation: %d %01X\n", static_cast<int>(ssa->exposure_compensation_dial_value), ssa->exposure_compensation_dial_unknown);
+          caps.shutter_speed.exposure = ssa.exposure_compensation_dial_value; // TODO: map to -3/+3 range?
         }
 
         break;
@@ -182,8 +183,8 @@ void print_camera_caps_submessage(uint8_t const* data, size_t const size)
         {
           uint16_t aperture;
           memcpy(&aperture, data + 7, 2);
-          printf("Aperture: %d\n", static_cast<int>(aperture));
           print_hex(data + 4, size - 4);
+          caps.aperture.value = aperture;
         }
         break;
         default: printf("printf_camera_caps_submessage, unknown type (%04X/%04X)\n", static_cast<int>(type.x), static_cast<int>(type.y));
@@ -207,8 +208,12 @@ void print_camera_caps_submessage(uint8_t const* data, size_t const size)
       {
         case 0xD02A:
         {
-          printf("ISO-Levels:\n");
-          print_uint32(data + 4, size - 4);
+          const size_t offset = 16; // first is type, next 3 are not ISO levels, unknown
+          if (size >= offset)
+          {
+            caps.iso.numLevels = std::min(size - offset, sizeof(caps.iso.levels)) / sizeof(*caps.iso.levels);
+            memcpy(caps.iso.levels, data + offset, caps.iso.numLevels * sizeof(*caps.iso.levels));
+          }
         }
         break;
 
@@ -236,11 +241,16 @@ void print_camera_caps_submessage(uint8_t const* data, size_t const size)
           assert(size == sizeof(shutter_speed_status) + 4);
           shutter_speed_status shutterStatus;
           memcpy(&shutterStatus, data + 4, sizeof(shutterStatus));
-          int x = static_cast<uint8_t>(shutterStatus.shutter_speed[0]);
-          if (x == 3)
-            printf("Shutter speed: auto %08X %08X\n", shutterStatus.shutter_speed[0], shutterStatus.shutter_speed[1]);
+
+          if (static_cast<uint8_t>(shutterStatus.shutter_speed[0]) == 3)
+          {
+             caps.shutter_speed.mode = shutter_speed_auto;
+          }
           else
-            printf("Shutter speed: 1/%us %d %08X\n", (shutterStatus.shutter_speed[0] >> 8) / 1000, x, shutterStatus.shutter_speed[1]);
+          {
+            caps.shutter_speed.mode = shutter_speed_manual;
+            caps.shutter_speed.value = (shutterStatus.shutter_speed[0] >> 8) / 1000;
+          }
         }
         break;
         case 0xD17C:
@@ -258,12 +268,14 @@ void print_camera_caps_submessage(uint8_t const* data, size_t const size)
   }
 }
 
-void print_camera_caps(void const* data, size_t const size)
+camera_capabilities parse_camera_caps(void const* data, size_t const size)
 {
+  camera_capabilities caps = {};
   size_t remainingBytes = size;
   uint8_t const* bytes = static_cast<uint8_t const*>(data);
   if (remainingBytes < 12)
-    return;
+    return caps;
+
   bytes += 12; // 12 bytes unknown
   remainingBytes -= 12;
 
@@ -293,11 +305,13 @@ void print_camera_caps(void const* data, size_t const size)
       break;
     }
 
-    print_camera_caps_submessage(bytes, subMsgSize);
+    parse_camera_caps_submessage(caps, bytes, subMsgSize);
 
     bytes += subMsgSize;
     remainingBytes -= subMsgSize;
   }
+
+  return caps;
 }
 
 } // namespace
@@ -309,12 +323,15 @@ bool set_iso(int sockfd, uint32_t iso)
     return fuji_twopart_message(sockfd, msg_1, msg_2);
 }
 
-bool init_control_connection(int const sockfd, char const* deviceName)
+bool init_control_connection(int const sockfd, char const* deviceName, camera_capabilities* caps)
 {
     if (sockfd <= 0)
       return false;
 
-    LOG_INFO_FORMAT("init_control_connection (socket %d)", sockfd);
+    if (!deviceName || !deviceName[0])
+      deviceName = "CameraClient";
+
+        LOG_INFO_FORMAT("init_control_connection (socket %d)", sockfd);
     auto const reg_msg = generate_registration_message(deviceName);
     LOG_INFO("send hello");
     fuji_send(sockfd, &reg_msg, sizeof(reg_msg));
@@ -355,7 +372,8 @@ bool init_control_connection(int const sockfd, char const* deviceName)
     print_uint32(buffer, size);
     print_ascii(buffer, size);
 
-    print_camera_caps(buffer, size);
+    if (caps)
+      *caps = parse_camera_caps(buffer, size);
 
     fuji_receive_log(sockfd, buffer);
 

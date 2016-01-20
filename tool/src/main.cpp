@@ -168,6 +168,7 @@ int main()
   sock sockfd;
   std::atomic<bool> imageStreamFlag(true);
   std::thread imageStreamThread;
+  camera_capabilities caps = {};
 
   std::string line;
   while(getline(line))
@@ -185,10 +186,13 @@ int main()
           if (sockfd <= 0)
           {
             sockfd = connect_to_camera(control_server_port);
-            if (!init_control_connection(sockfd, "HackedClient"))
+            if (!init_control_connection(sockfd, "HackedClient", &caps))
               printf("failure\n");
             else
+            {
+              print(caps);
               print_status(sockfd);
+            }
           }
           else
           {
