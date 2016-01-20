@@ -154,17 +154,4 @@ size_t fuji_receive(int sockfd, void* data, uint32_t sizeBytes)
   return size;
 }
 
-uint32_t generate_message_id()
-{
-  static std::atomic<uint32_t> id_counter;
-  return ++id_counter;
-}
-
-void* fill_message_id(uint32_t id, void* buffer, size_t size)
-{
-    assert(size >= 8);
-    memcpy(static_cast<uint8_t*>(buffer) + 4, &id, sizeof(id));
-    return buffer;
-}
-
 } // namespace fcwt

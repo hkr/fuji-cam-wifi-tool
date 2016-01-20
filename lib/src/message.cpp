@@ -1,5 +1,7 @@
 #include "message.hpp"
 
+#include <atomic>
+
 namespace fcwt {
 
 #define MESSAGE_TYPE_TO_STRING_CASE(x) case message_type::x: return #x
@@ -63,6 +65,12 @@ bool is_success_response(uint32_t const id, void const* buffer, uint32_t const s
         print_hex(buffer, 8);
     }
     return result;
+}
+
+uint32_t generate_message_id()
+{
+  static std::atomic<uint32_t> id_counter;
+  return ++id_counter;
 }
 
 } // namespace fcwt
