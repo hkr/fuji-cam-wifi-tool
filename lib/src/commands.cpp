@@ -124,23 +124,6 @@ uint8_t message10[] =
 //    18:00:00:00: 01:00:1b:10: 91:00:00:00: 11:00:00:00: 00:00:00:00: 79:da:09:00 // last int is image id?
 // -> 10:00:00:00: 03:00:01:20: 91:00:00:00: 79:da:09:00 // image complete
 
-template <size_t N1, size_t N2>
-static bool fuji_twopart_message(int const sockfd, static_message<N1> const& msg1, static_message<N2> const& msg2)
-{
-  fuji_send(sockfd, msg1);
-  return fuji_message(sockfd, msg2);
-}
-
-template <size_t N>
-size_t fuji_receive_log(int sockfd, uint8_t (&data)[N])
-{
-    size_t size = fuji_receive(sockfd, data, N);
-    printf("receive %zu bytes [", size);
-    print_hex(data, size, skip_newline);
-    printf("]\n");
-    return size;
-}
-
 void print_camera_caps_submessage(uint8_t const* data, size_t const size)
 {
   if (size < 4)
@@ -392,69 +375,6 @@ void terminate_control_connection(int sockfd)
   fuji_message(sockfd, make_static_message(message_type::stop));
   uint32_t terminate = 0xffffffff;
   fuji_send(sockfd, &terminate, sizeof(terminate));
-}
-
-bool is_success_response(uint32_t const id, void const* buffer, uint32_t const size)
-{
-    if (size != 8)
-        return false;
-
-    struct response_success
-    {
-      uint8_t const type[4] = {0x03, 0x00, 0x01, 0x20};
-      uint32_t id;
-    };
-
-    response_success success = {};
-    success.id = id;
-    bool const result = memcmp(&success, buffer, 8) == 0;
-    if (!result)
-    {
-        LOG_INFO("expected: ");
-        print_hex(&success, 8);
-        LOG_INFO("actual: ");
-        print_hex(buffer, 8);
-    }
-    return result;
-}
-
-bool fuji_message(int const sockfd, uint32_t const id, void const* message, size_t size)
-{
-    fuji_send(sockfd, message, size);
-
-    uint8_t buffer[8];
-    uint32_t receivedBytes = fuji_receive_log(sockfd, buffer);
-
-    if (!is_success_response(id, buffer, receivedBytes))
-    {
-        LOG_INFO_FORMAT("received %d bytes", receivedBytes);
-        print_hex(buffer, receivedBytes);
-        return false;
-    }
-
-    return true;
-}
-
-#define MESSAGE_TYPE_TO_STRING_CASE(x) case message_type::x: return #x
-
-char const* to_string(message_type type)
-{
-    switch(type)
-    {
-        MESSAGE_TYPE_TO_STRING_CASE(hello);
-        MESSAGE_TYPE_TO_STRING_CASE(start);
-        MESSAGE_TYPE_TO_STRING_CASE(stop);
-        MESSAGE_TYPE_TO_STRING_CASE(image_info_by_index);
-        MESSAGE_TYPE_TO_STRING_CASE(thumbnail_by_index);
-        MESSAGE_TYPE_TO_STRING_CASE(shutter);
-        MESSAGE_TYPE_TO_STRING_CASE(single_part);
-        MESSAGE_TYPE_TO_STRING_CASE(two_part);
-        MESSAGE_TYPE_TO_STRING_CASE(full_image);
-        MESSAGE_TYPE_TO_STRING_CASE(camera_remote);
-        MESSAGE_TYPE_TO_STRING_CASE(camera_last_image);
-        MESSAGE_TYPE_TO_STRING_CASE(camera_remote_x);
-        default: return "";
-    }
 }
 
 bool shutter(int const sockfd) 
