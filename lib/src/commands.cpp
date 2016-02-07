@@ -461,8 +461,49 @@ static void print_status(int sockfd)
 }
 #endif
 
+static bool parse_white_balance_mode(uint32_t const value, white_balance_mode& mode)
+{
+  switch(value)
+  {
+    default: return false;
+    case 2: mode = white_balance_auto; break;
+    case 4: mode = white_balance_fine; break;
+    case 0x800C: mode = white_balance_custom; break;
+    case 0x800B: mode = white_balance_temperature; break;
+    case 0x8006: mode = white_balance_shade; break;
+    case 0x8001: mode = white_balance_fluorescent_1; break;
+    case 0x8002: mode = white_balance_fluorescent_2; break;
+    case 0x8003: mode = white_balance_fluorescent_3; break;
+    case 6: mode = white_balance_incandescent; break;
+    case 0x800A: mode = white_balance_underwater; break;
+  }
+  return true;
+}
+
+static bool parse_film_simulation_mode(uint32_t const value, film_simulation_mode& mode)
+{
+  switch(value >> 16)
+  {
+    default: return false;
+    case 1: mode = film_simulation_standard; break;
+    case 2: mode = film_simulation_vivid; break;
+    case 3: mode = film_simulation_soft; break;
+    case 11: mode = film_simulation_classic_chrome; break;
+    case 6: mode = film_simulation_pro_neg_hi; break;
+    case 7: mode = film_simulation_pro_neg_std; break;
+    case 4: mode = film_simulation_monochrome; break;
+    case 8: mode = film_simulation_monochrome_y_filter; break;
+    case 9: mode = film_simulation_monochrome_r_filter; break;
+    case 10: mode = film_simulation_monochrome_g_filter; break;
+    case 5: mode = film_simulation_sepia; break;
+  }
+  return true;
+}
+
 bool current_settings(int sockfd, camera_settings& settings)
 {
+    settings = camera_settings();
+
     auto const msg = generate<status_request_message>();
     printf("Status request %d\n", msg.id);
     fuji_send(sockfd, &msg, sizeof(msg));
@@ -473,12 +514,25 @@ bool current_settings(int sockfd, camera_settings& settings)
     print_uint32(buf, receivedBytes);
     print_ascii(buf, receivedBytes);
 
-    settings = camera_settings();
+    bool success = true;
 
-    //sett
+    uint32_t white_balance;
+    memcpy(&white_balance, &buf[8 + 88], 4);
+    success = success && parse_white_balance_mode(white_balance, settings.white_balance);
+    
+    uint32_t film_simulation;
+    memcpy(&film_simulation, &buf[8 + 92], 4);
+    success = success && parse_film_simulation_mode(film_simulation, settings.film_simulation);
+
+    memcpy(&settings.iso, &buf[8 + 58], 4);
+
+    // auto_focus_point focus_point;
+    // image_settings image;
+
     receivedBytes = fuji_receive(sockfd, buf);
+    // TODO error check
 
-    return true; // TODO
+    return success;
 }
 
 } // namespace fcwt

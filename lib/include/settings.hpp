@@ -2,13 +2,15 @@
 #define FUJI_CAM_WIFI_TOOL_SETTINGS_HPP
 
 #include <stdint.h>
+#include <string>
 
 namespace fcwt {
 
 enum image_format
 {
   image_format_jpeg,
-  image_format_raw
+  image_format_raw,
+  image_format_raw_and_jpeg
 };
 
 enum jpeg_quality
@@ -39,11 +41,15 @@ struct image_settings
   jpeg_aspect aspect;
 };
 
+std::string to_string(image_settings const& image);
+
 struct auto_focus_point
 {
   uint8_t x;
   uint8_t y;
 };
+
+std::string to_string(auto_focus_point const& focus_point);
 
 enum film_simulation_mode
 {
@@ -60,6 +66,8 @@ enum film_simulation_mode
   film_simulation_sepia
 };
 
+char const* to_string(film_simulation_mode film_simulation);
+
 enum white_balance_mode
 {
   white_balance_auto,
@@ -74,14 +82,18 @@ enum white_balance_mode
   white_balance_underwater
 };
 
+char const* to_string(white_balance_mode white_balance);
+
 struct camera_settings
 {
   uint32_t iso;
-  white_balance_mode wb;
+  white_balance_mode white_balance;
   film_simulation_mode film_simulation;
   auto_focus_point focus_point;
   image_settings image;
 };
+
+void print(camera_settings const& settings);
 
 } // namespace fcwt
 

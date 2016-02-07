@@ -2,6 +2,7 @@
 #define FUJI_CAM_WIFI_TOOL_CAPABILITIES_HPP
 
 #include <stdint.h>
+#include <string>
 
 namespace fcwt {
 
@@ -9,6 +10,15 @@ const uint32_t iso_flag_auto = 1 << 31;
 const uint32_t iso_flag_emulated = 1 << 30;
 const uint32_t iso_value_mask = 0x00ffffff;
 const uint32_t iso_max_levels = 32;
+
+struct iso_level
+{
+    iso_level(uint32_t val) : value(val) {}
+    operator uint32_t() const { return value; }
+    uint32_t value;
+};
+
+std::string to_string(iso_level iso);
 
 struct iso_caps
 {
