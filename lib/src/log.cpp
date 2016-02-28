@@ -59,11 +59,20 @@ void fatal_error(char const* msg) {
 std::string string_format(char const* format, ...) {
   va_list args;
   va_start(args, format);
-  size_t const size = std::snprintf(nullptr, 0, format, args) + 1;
-  std::unique_ptr<char[]> buf(new char[size]);
-  std::snprintf(buf.get(), size, format, args);
+  int const length = std::vsnprintf(nullptr, 0, format, args);
   va_end(args);
-  return std::string(buf.get(), buf.get() + size - 1);
+  std::string result;
+  if (length > 0)
+  {
+    size_t size = length + 1;
+    std::unique_ptr<char[]> buf(new char[size]);
+    va_start(args, format);
+    if (std::vsnprintf(buf.get(), size, format, args) == length)
+      result.assign(buf.get(), buf.get() + size - 1);
+    va_end(args);
+  }
+  
+  return result;
 }
 
 }  // namespace fcwt
