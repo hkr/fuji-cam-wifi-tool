@@ -534,6 +534,82 @@ static bool parse_film_simulation_mode(uint32_t const value,
   return true;
 }
 
+static bool parse_image_settings(uint32_t const format,
+                                 uint32_t const size_aspect,
+                                 uint32_t const image_space_on_sdcard,
+                                 image_settings& image) {
+  switch (format >> 16) {
+    default:
+      return false;
+    case 2:
+      image.format = image_format_jpeg;
+      image.quality = jpeg_quality_fine;
+    case 3:
+      image.format = image_format_jpeg;
+      image.quality = jpeg_quality_normal;
+    case 4:
+      image.format = image_format_raw_and_jpeg;
+      image.quality = jpeg_quality_fine;
+      break;
+    case 5:
+      image.format = image_format_raw_and_jpeg;
+      image.quality = jpeg_quality_normal;
+      break;
+  }
+
+  switch (size_aspect) {
+    default:
+      return false;
+    case 2:
+      image.size = jpeg_size_s;
+      image.aspect = jpeg_aspect_3_by_2;
+      break;
+    case 3:
+      image.size = jpeg_size_s;
+      image.aspect = jpeg_aspect_16_by_9;
+      break;
+    case 4:
+      image.size = jpeg_size_s;
+      image.aspect = jpeg_aspect_1_by_1;
+      break;
+    case 6:
+      image.size = jpeg_size_m;
+      image.aspect = jpeg_aspect_3_by_2;
+      break;
+    case 7:
+      image.size = jpeg_size_m;
+      image.aspect = jpeg_aspect_16_by_9;
+      break;
+    case 8:
+      image.size = jpeg_size_m;
+      image.aspect = jpeg_aspect_1_by_1;
+      break;
+    case 10:
+      image.size = jpeg_size_l;
+      image.aspect = jpeg_aspect_3_by_2;
+      break;
+    case 11:
+      image.size = jpeg_size_l;
+      image.aspect = jpeg_aspect_16_by_9;
+      break;
+    case 12:
+      image.size = jpeg_size_l;
+      image.aspect = jpeg_aspect_1_by_1;
+      break;
+  }
+
+  image.space_on_sdcard = image_space_on_sdcard >> 16;
+
+  return true;
+}
+
+static bool parse_auto_focus(uint32_t const autofocus_point,
+                             auto_focus_point& focus_point) {
+  focus_point.x = static_cast<uint8_t>(autofocus_point >> 24);
+  focus_point.y = static_cast<uint8_t>((autofocus_point >> 16) & 0xff);
+  return true;
+}
+
 bool current_settings(int sockfd, camera_settings& settings) {
   settings = camera_settings();
 
@@ -561,8 +637,26 @@ bool current_settings(int sockfd, camera_settings& settings) {
 
   memcpy(&settings.iso, &buf[8 + 58], 4);
 
-  // auto_focus_point focus_point;
-  // image_settings image;
+  uint32_t image_format, image_size_aspect, image_space_on_sdcard;
+  memcpy(&image_format, &buf[8 + 44], 4);
+  memcpy(&image_size_aspect, &buf[8 + 52], 4);
+  memcpy(&image_space_on_sdcard, &buf[8 + 20], 4);
+  success = success && parse_image_settings(image_format, image_size_aspect, 
+          image_space_on_sdcard,
+                                            settings.image);
+
+  // only seems to work for single point, have not found data for 'zone'.
+  uint32_t autofocus_point;
+  memcpy(&autofocus_point, &buf[8 + 104], 4);
+  success =
+      success && parse_auto_focus(autofocus_point, settings.focus_point);
+
+  // TODO: pop-up flash and flash in general? Don't care for now.
+#if 0
+  uint32_t flash;
+  memcpy(&flash, &buf[8 + 8], 4);
+  printf("flash raw=%08X\n", flash);
+#endif
 
   receivedBytes = fuji_receive(sockfd, buf);
   // TODO error check

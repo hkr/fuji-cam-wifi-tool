@@ -14,7 +14,6 @@ namespace fcwt {
 char const* to_string(image_format const format) {
   switch (format) {
     CASE_RETURN_ENUM_TO_STRING(image_format_jpeg);
-    CASE_RETURN_ENUM_TO_STRING(image_format_raw);
     CASE_RETURN_ENUM_TO_STRING(image_format_raw_and_jpeg);
   }
   __builtin_unreachable();
@@ -86,14 +85,12 @@ std::string to_string(auto_focus_point const& focus_point) {
 }
 
 std::string to_string(image_settings const& image) {
-  if (image.format == image_format_raw)
-    return "image_settings: image_format=image_format_raw";
-  else
-    return string_format(
-        "image_settings: image_format=%s, jpeg_quality=%s, jpeg_size=%s, "
-        "jpeg_aspect=%s",
-        to_string(image.format), to_string(image.quality),
-        to_string(image.size), to_string(image.aspect));
+  return string_format(
+      "image_settings: image_format=%s, jpeg_quality=%s, jpeg_size=%s, "
+      "jpeg_aspect=%s, space_on_sdcard=%u",
+      to_string(image.format), to_string(image.quality), to_string(image.size),
+      to_string(image.aspect),
+      static_cast<unsigned int>(image.space_on_sdcard));
 }
 
 void print(camera_settings const& settings) {

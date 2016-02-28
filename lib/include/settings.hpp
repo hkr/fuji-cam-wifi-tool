@@ -8,8 +8,9 @@ namespace fcwt {
 
 enum image_format {
   image_format_jpeg,
-  image_format_raw,
   image_format_raw_and_jpeg
+  // when querying settings from camera we get RAW + FINE even when it's in pure RAW mode
+  // so no extra image_format_raw
 };
 
 enum jpeg_quality {
@@ -34,6 +35,7 @@ struct image_settings {
   jpeg_quality quality;
   jpeg_size size;
   jpeg_aspect aspect;
+  uint32_t space_on_sdcard;
 };
 
 std::string to_string(image_settings const& image);
