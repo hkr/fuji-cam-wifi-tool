@@ -17,6 +17,14 @@ std::string to_string(iso_level iso)
     return string_format("%12d%s", lvl & iso_value_mask, flag);
 }
 
+std::string to_string(aperture_f_number aperture)
+{
+    if (aperture.value)
+        return string_format("%.1f", static_cast<float>(aperture.value) / 100.f);
+    else
+        return "auto";
+}
+
 void print(camera_capabilities const& caps)
 {
     printf("camera capabilities:\n");
@@ -35,10 +43,7 @@ void print(camera_capabilities const& caps)
     else
         printf("\t\texposure compensation: %d\n", static_cast<int>(caps.shutter_speed.exposure));
     printf("\taperture:\n");
-    if (caps.aperture.value)
-        printf("\t\tvalue: %.1f\n", static_cast<float>(caps.aperture.value) / 100.f);
-    else
-        printf("\t\tauto\n");
+    printf("\t\tvalue: %s\n", to_string(caps.aperture).c_str());
 }
 
 } // namespace fcwt

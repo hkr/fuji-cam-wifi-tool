@@ -309,11 +309,46 @@ camera_capabilities parse_camera_caps(void const* data, size_t const size) {
 
 }  // namespace
 
-bool set_iso(int sockfd, iso_level iso) {
+bool update_setting(int sockfd, iso_level iso) {
   auto const msg_1 =
       make_static_message(message_type::two_part, 0x2A, 0xD0, 0x00, 0x00);
   auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(iso));
   return fuji_twopart_message(sockfd, msg_1, msg_2);
+}
+
+#if 0
+// 1 f stop?
+// 10:00:00:00 01:00:2d:90 cd:00:00:00 01:00:00:00
+
+// 10:00:00:00 01:00:2d:90 6b:0b:00:00 00:00:00:00
+// 10:00:00:00 01:00:2d:90 71:0b:00:00 00:00:00:00
+
+80:00:00:00:02:00:15:10:70 0b:00:00:13:00:1b:d2:00:00:00:00:0c:50:02:00:00:00:12:50:00:00:00:00:29:d2:b3:0f:00:00:2a:d2:8f:06:00:00:0e:50:03:00:00:00:42:d2:02:00:00:00:18:d0:02:00:00:00:41:d2:06:00:00:00:2a:d0:00:19:00:80:2b:d0:ff:ff:ff:ff:28:d0:00:00:00:00:07:50:dc:00:00:00:10:50:00:00:00:00:05:50:0b:80:00:00:01:d0:01:00:00:00:0a:50:01:80:00:00:7c:d1:04:04:02:03:09:d2:00:00:00:00
+
+80:00:00:00:02:00:15:10:72:0b:00:00:13:00:1b:d2:00:00:00:00:0c:50:02:00:00:00:12:50:00:00:00:00:29:d2:b3:0f:00:00:2a:d2:8f:06:00:00:0e:50:03:00:00:00:42:d2:02:00:00:00:18:d0:02:00:00:00:41:d2:06:00:00:00:2a:d0:00:19:00:80:2b:d0:ff:ff:ff:ff:28:d0:00:00:00:00:07:50:c8:00:00:00:10:50:00:00:00:00:05:50:0b:80:00:00:01:d0:01:00:00:00:0a:50:01:80:00:00:7c:d1:04:04:02:03:09:d2:00:00:00:00
+#endif
+
+
+bool update_setting(int sockfd, image_settings image) {
+  return false;
+}
+
+bool update_setting(int sockfd, film_simulation_mode film) {
+  return false;
+}
+
+bool update_setting(int sockfd, auto_focus_point point) {
+  return false;
+}
+
+bool update_setting(int sockfd, white_balance_mode white_balance) {
+  return false;
+}
+
+bool update_setting(int sockfd, aperture_f_stop aperture) {
+  auto const msg = make_static_message(
+      message_type::aperture, aperture == aperture_close_third_stop ? 1 : 0, 0, 0, 0);
+  return fuji_message(sockfd, msg);
 }
 
 bool init_control_connection(int const sockfd, char const* deviceName,
@@ -421,37 +456,6 @@ bool shutter(int const sockfd) {
   return is_success_response(lastMsgId, buffer, receivedBytes);
 #endif
 }
-
-#if 0
-static void print_status(int sockfd)
-{
-
-
-    if (receivedBytes >= 112)
-    {
-      uint32_t iso, white_balance, film_simulation, autofocus_point, flash, image_format_unknown, image_size_aspect, image_format;
-      memcpy(&flash, &buf[8 + 8], 4);
-      memcpy(&iso, &buf[8 + 58], 4);
-      memcpy(&white_balance, &buf[8 + 88], 4);
-      memcpy(&film_simulation, &buf[8 + 92], 4);
-      memcpy(&autofocus_point, &buf[8 + 104], 4); // only seems to work for single point, have not found data for 'zone' yet
-      memcpy(&image_format_unknown, &buf[8 + 20], 4);
-      memcpy(&image_format, &buf[8 + 44], 4);
-      memcpy(&image_size_aspect, &buf[8 + 52], 4);
-
-      printf("iso=%u (%u) raw=%u\n", iso & 0xffff, iso >> 16, iso);
-      printf("white_balance=%d\n", white_balance);
-      printf("film_simulation=%u raw=%08X\n", film_simulation >> 16, film_simulation);
-      printf("autofocus_point(x/y)=(%u,%u) raw=%08X\n", autofocus_point >> 24, (autofocus_point >> 16) & 0xff, autofocus_point);
-      printf("flash raw=%08X\n", flash);
-      printf("image_format_unknown=%08X\n", image_format_unknown);
-      printf("image_size_aspect=%u %08X\n", image_size_aspect, image_size_aspect);
-      printf("image_format=%u %08X\n", image_format >> 16, image_format);
-    }
-
-    receivedBytes = fuji_receive(sockfd, buf);
-}
-#endif
 
 static bool parse_white_balance_mode(uint32_t const value,
                                      white_balance_mode& mode) {
@@ -625,6 +629,8 @@ bool current_settings(int sockfd, camera_settings& settings) {
 
   bool success = true;
 
+  memcpy(&settings.aperture.value, &buf[8 + 76], 4);
+
   uint32_t white_balance;
   memcpy(&white_balance, &buf[8 + 88], 4);
   success = success &&
@@ -650,6 +656,9 @@ bool current_settings(int sockfd, camera_settings& settings) {
   memcpy(&autofocus_point, &buf[8 + 104], 4);
   success =
       success && parse_auto_focus(autofocus_point, settings.focus_point);
+
+  uint32_t aperture;
+  memcpy(&autofocus_point, &buf[8 + 104], 4);
 
   // TODO: pop-up flash and flash in general? Don't care for now.
 #if 0

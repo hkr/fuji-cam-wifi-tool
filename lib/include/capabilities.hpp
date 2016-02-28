@@ -19,32 +19,34 @@ struct iso_level {
 
 std::string to_string(iso_level iso);
 
-struct iso_caps {
+struct iso_levels {
   uint32_t levels[iso_max_levels] = {};
   uint32_t numLevels = 0;
 };
 
 enum shutter_speed_mode { shutter_speed_auto, shutter_speed_manual };
 
-struct shutter_speed_caps {
+struct shutter_speed_parameters {
   shutter_speed_mode mode = shutter_speed_auto;
   uint32_t value = 0;
   int32_t exposure = 0;
 };
 
-struct aperture_caps {
+struct aperture_f_number {
   uint32_t value = 0;
 };
+
+std::string to_string(aperture_f_number aperture);
 
 struct auto_focus_caps {
   // TODO
 };
 
 struct camera_capabilities {
-  iso_caps iso;
-  shutter_speed_caps shutter_speed;
+  iso_levels iso;
+  shutter_speed_parameters shutter_speed;
   auto_focus_caps auto_focus;
-  aperture_caps aperture;
+  aperture_f_number aperture;
 };
 
 void print(camera_capabilities const& caps);

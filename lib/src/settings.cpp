@@ -97,6 +97,7 @@ void print(camera_settings const& settings) {
   printf("camera settings:\n");
   iso_level iso = {settings.iso};
   printf("\tiso: %s\n", to_string(iso).c_str());
+  printf("\taperture: %s\n", to_string(settings.aperture).c_str());
   printf("\twhite_balance: %s\n", to_string(settings.white_balance));
   printf("\tfilm_simulation_mode: %s\n", to_string(settings.film_simulation));
   printf("\t%s\n", to_string(settings.focus_point).c_str());

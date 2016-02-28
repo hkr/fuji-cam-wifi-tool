@@ -61,7 +61,7 @@ void image_stream_main(std::atomic<bool>& flag) {
 }
 
 char const* comamndStrings[] = {"connect", "shutter", "stream", "info",
-                                "set_iso"};
+                                "set_iso", "aperture"};
 
 enum class command {
   connect,
@@ -69,6 +69,7 @@ enum class command {
   stream,
   info,
   set_iso,
+  aperture,
   unknown,
   count = unknown
 };
@@ -166,10 +167,24 @@ int main() {
         if (splitLine.size() > 1) {
           unsigned long iso = std::stoul(splitLine[1]);
           printf("%s(%lu)\n", splitLine[0].c_str(), iso);
-          if (set_iso(sockfd, iso)) {
+          if (update_setting(sockfd, iso_level(iso))) {
             print_status(sockfd);
           } else {
             printf("Failed to set ISO %lu\n", iso);
+          }
+        }
+      } break;
+
+      case command::aperture: {
+        if (splitLine.size() > 1) {
+          int const aperture = std::stoi(splitLine[1]);
+          printf("%s(%d)\n", splitLine[0].c_str(), aperture);
+          if (update_setting(sockfd, aperture > 0 ? aperture_close_third_stop : aperture_open_third_stop)) {
+            camera_settings settings;
+            if (current_settings(sockfd, settings))
+              print(settings);
+          } else {
+            printf("Failed to set aperture %d\n", aperture);
           }
         }
       } break;

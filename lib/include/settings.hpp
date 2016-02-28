@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <string>
 
+#include "capabilities.hpp"
+
 namespace fcwt {
 
 enum image_format {
@@ -84,6 +86,7 @@ struct camera_settings {
   film_simulation_mode film_simulation;
   auto_focus_point focus_point;
   image_settings image;
+  aperture_f_number aperture;
 };
 
 void print(camera_settings const& settings);

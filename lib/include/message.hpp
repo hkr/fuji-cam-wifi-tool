@@ -28,6 +28,7 @@ enum class message_type : uint16_t {
   camera_remote_x = 0x902b,  // unknown, app uses it before camera_remote,
                              // returns 392 bytes of data, maybe the current
                              // settings?
+  aperture = 0x902d, // relative adjustement of aperature by one third stop
 };
 
 char const* to_string(message_type type);
@@ -105,10 +106,8 @@ size_t fuji_receive_log(int sockfd, uint8_t(&data)[N]) {
   return size;
 }
 
-// name is just a guess, the app uses this a lot, maybe the cam uses it as some
-// kind of heart-beat?
-// returns 124 bytes of data (I think somethime differs from that, can't
-// remember)
+// query the current camera state
+// app is polling this constantly, probably to update UI
 struct status_request_message : static_message<4> {
   status_request_message() {
     index = 1;
