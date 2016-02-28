@@ -10,10 +10,10 @@ namespace fcwt {
 const int control_server_port = 55740;
 const int jpg_stream_server_port = 55742;
 
-class sock
-{
+class sock {
   int sockfd;
-public:
+
+ public:
   sock(int fd = 0);
   ~sock();
   sock(sock const&) = delete;
@@ -33,21 +33,20 @@ void send_data(int sockfd, void const* data, size_t sizeBytes);
 void receive_data(int sockfd, void* data, size_t sizeBytes);
 void fuji_send(int sockfd, void const* data, uint32_t sizeBytes);
 
-// returns the total payload bytes, if this is more than sizeBytes the caller needs to use receive_data to get the additional data
+// returns the total payload bytes, if this is more than sizeBytes the caller
+// needs to use receive_data to get the additional data
 size_t fuji_receive(int sockfd, void* data, uint32_t sizeBytes);
 
 template <size_t N>
-void fuji_send(int sockfd, uint8_t const (&data)[N])
-{
-    fuji_send(sockfd, data, N);
+void fuji_send(int sockfd, uint8_t const(&data)[N]) {
+  fuji_send(sockfd, data, N);
 }
 
 template <size_t N>
-size_t fuji_receive(int sockfd, uint8_t (&data)[N])
-{
-    return fuji_receive(sockfd, data, N);
+size_t fuji_receive(int sockfd, uint8_t(&data)[N]) {
+  return fuji_receive(sockfd, data, N);
 }
 
-} // namespace fcwt
+}  // namespace fcwt
 
 #endif

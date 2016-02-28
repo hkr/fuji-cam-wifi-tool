@@ -19,86 +19,77 @@
 
 namespace fcwt {
 
-static void print_status(int sockfd)
-{
-    auto const msg = generate<status_request_message>();
-    printf("Status request %d\n", msg.id);
-    fuji_send(sockfd, &msg, sizeof(msg));
-    uint8_t buf[1024];
-    uint32_t receivedBytes = fuji_receive(sockfd, buf);
-    printf("Status: %d bytes\n", receivedBytes);
-    print_hex(buf, receivedBytes);
-    print_uint32(buf, receivedBytes);
-    print_ascii(buf, receivedBytes);
+static void print_status(int sockfd) {
+  auto const msg = generate<status_request_message>();
+  printf("Status request %d\n", msg.id);
+  fuji_send(sockfd, &msg, sizeof(msg));
+  uint8_t buf[1024];
+  uint32_t receivedBytes = fuji_receive(sockfd, buf);
+  printf("Status: %d bytes\n", receivedBytes);
+  print_hex(buf, receivedBytes);
+  print_uint32(buf, receivedBytes);
+  print_ascii(buf, receivedBytes);
 
-    if (receivedBytes >= 112)
-    {
-      uint32_t iso, white_balance, film_simulation, autofocus_point, flash, image_format_unknown, image_size_aspect, image_format;
-      memcpy(&flash, &buf[8 + 8], 4);
-      memcpy(&iso, &buf[8 + 58], 4);
-      memcpy(&white_balance, &buf[8 + 88], 4);
-      memcpy(&film_simulation, &buf[8 + 92], 4);
-      memcpy(&autofocus_point, &buf[8 + 104], 4); // only seems to work for single point, have not found data for 'zone' yet
-      memcpy(&image_format_unknown, &buf[8 + 20], 4);
-      memcpy(&image_format, &buf[8 + 44], 4);
-      memcpy(&image_size_aspect, &buf[8 + 52], 4);
+  if (receivedBytes >= 112) {
+    uint32_t iso, white_balance, film_simulation, autofocus_point, flash,
+        image_format_unknown, image_size_aspect, image_format;
+    memcpy(&flash, &buf[8 + 8], 4);
+    memcpy(&iso, &buf[8 + 58], 4);
+    memcpy(&white_balance, &buf[8 + 88], 4);
+    memcpy(&film_simulation, &buf[8 + 92], 4);
+    memcpy(&autofocus_point, &buf[8 + 104], 4);  // only seems to work for
+                                                 // single point, have not found
+                                                 // data for 'zone' yet
+    memcpy(&image_format_unknown, &buf[8 + 20], 4);
+    memcpy(&image_format, &buf[8 + 44], 4);
+    memcpy(&image_size_aspect, &buf[8 + 52], 4);
 
-      printf("iso=%u (%u) raw=%u\n", iso & 0xffff, iso >> 16, iso);
-      printf("white_balance=%d\n", white_balance);
-      printf("film_simulation=%u raw=%08X\n", film_simulation >> 16, film_simulation);
-      printf("autofocus_point(x/y)=(%u,%u) raw=%08X\n", autofocus_point >> 24, (autofocus_point >> 16) & 0xff, autofocus_point);
-      printf("flash raw=%08X\n", flash);
-      printf("image_format_unknown=%08X\n", image_format_unknown);
-      printf("image_size_aspect=%u %08X\n", image_size_aspect, image_size_aspect);
-      printf("image_format=%u %08X\n", image_format >> 16, image_format);
-    }
+    printf("iso=%u (%u) raw=%u\n", iso & 0xffff, iso >> 16, iso);
+    printf("white_balance=%d\n", white_balance);
+    printf("film_simulation=%u raw=%08X\n", film_simulation >> 16,
+           film_simulation);
+    printf("autofocus_point(x/y)=(%u,%u) raw=%08X\n", autofocus_point >> 24,
+           (autofocus_point >> 16) & 0xff, autofocus_point);
+    printf("flash raw=%08X\n", flash);
+    printf("image_format_unknown=%08X\n", image_format_unknown);
+    printf("image_size_aspect=%u %08X\n", image_size_aspect, image_size_aspect);
+    printf("image_format=%u %08X\n", image_format >> 16, image_format);
+  }
 
-    receivedBytes = fuji_receive(sockfd, buf);
+  receivedBytes = fuji_receive(sockfd, buf);
 }
 
-void image_stream_main(std::atomic<bool>& flag)
-{
+void image_stream_main(std::atomic<bool>& flag) {
   LOG_INFO("image_stream_main");
   sock const sockfd2 = connect_to_camera(jpg_stream_server_port);
 
   std::vector<uint8_t> buffer(1024 * 1024);
 
-  if (sockfd2 <= 0)
-    return;
+  if (sockfd2 <= 0) return;
 
   unsigned int image = 0;
-  while (flag)
-  {
-    uint32_t receivedBytes = fuji_receive(sockfd2, buffer.data(), buffer.size());
+  while (flag) {
+    uint32_t receivedBytes =
+        fuji_receive(sockfd2, buffer.data(), buffer.size());
     LOG_INFO_FORMAT("image_stream_main received %d bytes", receivedBytes);
 
     char filename[1024];
     snprintf(filename, sizeof(filename), "out/img_%d.jpg", image++);
     FILE* file = fopen(filename, "wb");
-    if (file)
-    {
-      int const header = 14; // not sure what's in the first 14 bytes
+    if (file) {
+      int const header = 14;  // not sure what's in the first 14 bytes
       fwrite(&buffer[header], receivedBytes, 1, file);
       fclose(file);
-    }
-    else
-    {
+    } else {
       LOG_WARN_FORMAT("image_stream_main Failed to create file %s", filename);
     }
   }
 }
 
-char const* comamndStrings[] =
-{
-  "connect",
-  "shutter",
-  "stream",
-  "info",
-  "set_iso"
-};
+char const* comamndStrings[] = {"connect", "shutter", "stream", "info",
+                                "set_iso"};
 
-enum class command 
-{
+enum class command {
   connect,
   shutter,
   stream,
@@ -108,48 +99,38 @@ enum class command
   count = unknown
 };
 
-static void completion(char const* buf, linenoiseCompletions* lc)
-{
-  for (int i = 0; i < static_cast<int>(command::count); ++i)
-  {
+static void completion(char const* buf, linenoiseCompletions* lc) {
+  for (int i = 0; i < static_cast<int>(command::count); ++i) {
     char const* const cmd = comamndStrings[i];
-    if (strstr(cmd, buf) == cmd)
-      linenoiseAddCompletion(lc, cmd);
+    if (strstr(cmd, buf) == cmd) linenoiseAddCompletion(lc, cmd);
   }
 }
 
-bool getline(std::string& line)
-{
+bool getline(std::string& line) {
   char* const str = linenoise("fcwt> ");
-  if (!str)
-    return false;
+  if (!str) return false;
 
   line.assign(str);
   free(str);
   return true;
 }
 
-command parse_command(std::string const& line)
-{
-  for (int i = 0; i < static_cast<int>(command::count); ++i)
-  {
-    if (line == comamndStrings[i])
-      return static_cast<command>(i);
+command parse_command(std::string const& line) {
+  for (int i = 0; i < static_cast<int>(command::count); ++i) {
+    if (line == comamndStrings[i]) return static_cast<command>(i);
   }
-  
+
   return command::unknown;
 }
 
-std::vector<std::string> split(std::string const& str, int delimiter(int) = ::isspace)
-{
+std::vector<std::string> split(std::string const& str,
+                               int delimiter(int) = ::isspace) {
   std::vector<std::string> result;
   auto const itEnd = str.end();
   auto it = str.begin();
-  while(it != itEnd)
-  {
+  while (it != itEnd) {
     it = std::find_if_not(it, itEnd, delimiter);
-    if(it == itEnd) 
-      break;
+    if (it == itEnd) break;
 
     auto const it2 = std::find_if(it, itEnd, delimiter);
     result.emplace_back(it, it2);
@@ -158,9 +139,7 @@ std::vector<std::string> split(std::string const& str, int delimiter(int) = ::is
   return result;
 }
 
-int main()
-{
-
+int main() {
   /* Set the completion callback. This will be called every time the
    * user uses the <tab> key. */
   linenoiseSetCompletionCallback(completion);
@@ -171,83 +150,58 @@ int main()
   camera_capabilities caps = {};
 
   std::string line;
-  while(getline(line))
-  {
-      linenoiseHistoryAdd(line.c_str());
-      auto const splitLine = split(line);
-      if (splitLine.empty())
-        continue;
+  while (getline(line)) {
+    linenoiseHistoryAdd(line.c_str());
+    auto const splitLine = split(line);
+    if (splitLine.empty()) continue;
 
-      command cmd = parse_command(splitLine[0]);
-      switch(cmd)
-      {
-        case command::connect:
-        {
-          if (sockfd <= 0)
-          {
-            sockfd = connect_to_camera(control_server_port);
-            if (!init_control_connection(sockfd, "HackedClient", &caps))
-              printf("failure\n");
-            else
-            {
-              print(caps);
-              print_status(sockfd);
-            }
-          }
-          else
-          {
-            printf("already connected\n");
-          }
-        }
-        break;
-      case command::shutter:
-      {
-        if (!shutter(sockfd))
-          printf("failure\n");
-        print_status(sockfd);
-
-      }
-      break;
-
-      case command::stream:
-      {
-        imageStreamThread = std::thread(([&]() { image_stream_main(imageStreamFlag); }));
-      }
-      break;
-
-      case command::info:
-      {
-        print_status(sockfd);
-      }
-      break;
-
-      case command::set_iso:
-      {
-        if (splitLine.size() > 1)
-        {
-          unsigned long iso = std::stoul(splitLine[1]);
-          printf("%s(%lu)\n", splitLine[0].c_str(), iso);
-          if (set_iso(sockfd, iso))
-          {
+    command cmd = parse_command(splitLine[0]);
+    switch (cmd) {
+      case command::connect: {
+        if (sockfd <= 0) {
+          sockfd = connect_to_camera(control_server_port);
+          if (!init_control_connection(sockfd, "HackedClient", &caps))
+            printf("failure\n");
+          else {
+            print(caps);
             print_status(sockfd);
           }
-          else
-          {
+        } else {
+          printf("already connected\n");
+        }
+      } break;
+      case command::shutter: {
+        if (!shutter(sockfd)) printf("failure\n");
+        print_status(sockfd);
+
+      } break;
+
+      case command::stream: {
+        imageStreamThread =
+            std::thread(([&]() { image_stream_main(imageStreamFlag); }));
+      } break;
+
+      case command::info: {
+        print_status(sockfd);
+      } break;
+
+      case command::set_iso: {
+        if (splitLine.size() > 1) {
+          unsigned long iso = std::stoul(splitLine[1]);
+          printf("%s(%lu)\n", splitLine[0].c_str(), iso);
+          if (set_iso(sockfd, iso)) {
+            print_status(sockfd);
+          } else {
             printf("Failed to set ISO %lu\n", iso);
           }
         }
-      }
-      break;
+      } break;
 
-      default:
-      {
-        printf("Unreconized command: %s\n", line.c_str());
-      }
+      default: { printf("Unreconized command: %s\n", line.c_str()); }
     }
   }
 
-  if (imageStreamThread.joinable())
-  {
+  if (imageStreamThread.joinable()) {
     imageStreamFlag = false;
     imageStreamThread.join();
   }
@@ -257,9 +211,6 @@ int main()
   return 0;
 }
 
-} // namespace fcwt
+}  // namespace fcwt
 
-int main(const int argc, char const* argv[])
-{
-  return fcwt::main();
-}
+int main(const int argc, char const* argv[]) { return fcwt::main(); }
