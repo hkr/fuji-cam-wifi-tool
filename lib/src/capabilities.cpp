@@ -33,7 +33,7 @@ void print(camera_capabilities const& caps)
     if (caps.shutter_speed.mode == shutter_speed_manual)
         printf("\t\ttime: 1/%ds\n", caps.shutter_speed.value);
     else
-        printf("\t\texposure: %d\n", static_cast<int>(caps.shutter_speed.exposure));
+        printf("\t\texposure compensation: %d\n", static_cast<int>(caps.shutter_speed.exposure));
     printf("\taperture:\n");
     if (caps.aperture.value)
         printf("\t\tvalue: %.1f\n", static_cast<float>(caps.aperture.value) / 100.f);
