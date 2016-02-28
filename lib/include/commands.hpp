@@ -22,7 +22,7 @@ bool shutter(int const sockfd);
 
 bool current_settings(int sockfd, camera_settings& settings);
 
-bool set_iso(int sockfd, uint32_t iso);
+bool set_iso(int sockfd, iso_level iso);
 
 }  // namespace fcwt
 
