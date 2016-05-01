@@ -16,7 +16,7 @@ char const* to_string(image_format const format) {
     CASE_RETURN_ENUM_TO_STRING(image_format_jpeg);
     CASE_RETURN_ENUM_TO_STRING(image_format_raw_and_jpeg);
   }
-  __builtin_unreachable();
+  FCWT_UNREACHABLE;
 }
 
 char const* to_string(jpeg_quality const quality) {
@@ -24,7 +24,7 @@ char const* to_string(jpeg_quality const quality) {
     CASE_RETURN_ENUM_TO_STRING(jpeg_quality_fine);
     CASE_RETURN_ENUM_TO_STRING(jpeg_quality_normal);
   }
-  __builtin_unreachable();
+  FCWT_UNREACHABLE;
 }
 
 char const* to_string(jpeg_size const size) {
@@ -33,7 +33,7 @@ char const* to_string(jpeg_size const size) {
     CASE_RETURN_ENUM_TO_STRING(jpeg_size_m);
     CASE_RETURN_ENUM_TO_STRING(jpeg_size_l);
   }
-  __builtin_unreachable();
+  FCWT_UNREACHABLE;
 }
 
 char const* to_string(jpeg_aspect const aspect) {
@@ -42,7 +42,7 @@ char const* to_string(jpeg_aspect const aspect) {
     CASE_RETURN_ENUM_TO_STRING(jpeg_aspect_16_by_9);
     CASE_RETURN_ENUM_TO_STRING(jpeg_aspect_1_by_1);
   }
-  __builtin_unreachable();
+  FCWT_UNREACHABLE;
 }
 
 char const* to_string(film_simulation_mode const film_simulation) {
@@ -59,7 +59,7 @@ char const* to_string(film_simulation_mode const film_simulation) {
     CASE_RETURN_ENUM_TO_STRING(film_simulation_monochrome_g_filter);
     CASE_RETURN_ENUM_TO_STRING(film_simulation_sepia);
   }
-  __builtin_unreachable();
+  FCWT_UNREACHABLE;
 }
 
 char const* to_string(white_balance_mode const white_balance) {
@@ -75,7 +75,7 @@ char const* to_string(white_balance_mode const white_balance) {
     CASE_RETURN_ENUM_TO_STRING(white_balance_incandescent);
     CASE_RETURN_ENUM_TO_STRING(white_balance_underwater);
   }
-  __builtin_unreachable();
+  FCWT_UNREACHABLE;
 }
 
 std::string to_string(auto_focus_point const& focus_point) {

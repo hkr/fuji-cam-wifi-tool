@@ -1,5 +1,6 @@
 #include "log.hpp"
 
+#include <stdarg.h>
 #include <stdlib.h>
 #include <algorithm>
 #include <string.h>
