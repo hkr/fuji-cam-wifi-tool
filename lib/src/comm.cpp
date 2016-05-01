@@ -1,11 +1,11 @@
 #include "comm.hpp"
 
 #include <stdint.h>
-#include <unistd.h>
 #include <errno.h>
 #include <algorithm>
 #include <assert.h>
 
+#if defined(__unix__)
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -14,6 +14,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
+#elif defined(_WIN32)
+#define NOMINMAX
+#include <winsock2.h>
+#endif
 
 #include "log.hpp"
 
@@ -21,34 +25,52 @@ namespace fcwt {
 
 const char* const server_ipv4_addr = "192.168.0.1";
 
-sock::sock(int fd) : sockfd(fd) {}
+struct sock::impl
+{
+	native_socket sockfd;
+	impl(native_socket fd) : sockfd(fd) {}
+	impl(impl const&) = delete;
+	impl& operator=(impl const&) = delete;
 
-sock::~sock() {
-  if (sockfd > 0) {
-    close(sockfd);
-  }
+	~impl()
+	{
+		if (sockfd)
+		{
+#if defined(_WIN32)
+			closesocket(sockfd);
+#elif defined(__unix__)
+			close(sockfd);
+#endif
+		}
+	}
+};
+
+sock::sock(native_socket fd) : sockfd(new impl(fd)) {}
+sock::~sock() {}
+sock::sock(sock&& other) : sockfd(std::move(other.sockfd)) { }
+
+sock::operator native_socket() const
+{
+	return sockfd ? sockfd->sockfd : 0;
 }
 
-sock::sock(sock&& other) : sockfd(other.sockfd) { other.sockfd = 0; }
-
 sock& sock::operator=(sock&& other) {
-  sock tmp(std::move(other));
-  swap(tmp);
+  std::move(other.sockfd);
   return *this;
 }
 
 void sock::swap(sock& other) {
-  int tmp = other.sockfd;
-  other.sockfd = sockfd;
-  sockfd = tmp;
+	using std::swap;
+	swap(sockfd, other.sockfd);
 }
 
 sock connect_to_camera(int port) {
   // TODO: proper error handling
 
-  const int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  const native_socket sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd < 0) fatal_error("Failed to create socket\n");
 
+#if defined(__unix__)
   fcntl(sockfd, F_SETFL, O_NONBLOCK);  // for timeout
 
   sockaddr_in sa = {};
@@ -79,7 +101,12 @@ sock connect_to_camera(int port) {
   }
 
   printf("Failed to connect\n");
-  close(sockfd);
+  closesocket(sockfd);
+
+#else defined(_WIN32)
+  // TODO
+#endif
+  
   return 0;
 }
 
@@ -93,10 +120,14 @@ uint32_t from_fuji_size_prefix(uint32_t sizeBytes) {
   return sizeBytes;
 }
 
-void send_data(int sockfd, void const* data, size_t sizeBytes) {
+void send_data(native_socket sockfd, void const* data, size_t sizeBytes) {
   bool retry = false;
   do {
-    ssize_t const result = write(sockfd, data, sizeBytes);
+#if defined(__unix__)
+	ssize_t const result = write(sockfd, data, sizeBytes);
+#elif defined(_WIN32)
+	int const result = send(sockfd, static_cast<char const*>(data), static_cast<int>(sizeBytes), 0);
+#endif
     if (result < 0) {
       if (errno == EINTR)
         retry = true;
@@ -106,9 +137,13 @@ void send_data(int sockfd, void const* data, size_t sizeBytes) {
   } while (retry);
 }
 
-void receive_data(int sockfd, void* data, size_t sizeBytes) {
+void receive_data(native_socket sockfd, void* data, size_t sizeBytes) {
   while (sizeBytes > 0) {
+#if defined(__unix__)
     ssize_t const result = read(sockfd, data, sizeBytes);
+#elif defined(_WIN32)
+	int const result = recv(sockfd, static_cast<char*>(data), static_cast<int>(sizeBytes), 0);
+#endif
     if (result < 0) {
       if (errno != EINTR) fatal_error("Failed to read data from socket\n");
     } else {
@@ -118,13 +153,13 @@ void receive_data(int sockfd, void* data, size_t sizeBytes) {
   }
 }
 
-void fuji_send(int sockfd, void const* data, uint32_t sizeBytes) {
+void fuji_send(native_socket sockfd, void const* data, uint32_t sizeBytes) {
   uint32_t const size = to_fuji_size_prefix(sizeBytes + sizeof(uint32_t));
   send_data(sockfd, &size, sizeof(uint32_t));
   send_data(sockfd, data, sizeBytes);
 }
 
-size_t fuji_receive(int sockfd, void* data, uint32_t sizeBytes) {
+size_t fuji_receive(native_socket sockfd, void* data, uint32_t sizeBytes) {
   uint32_t size = 0;
   receive_data(sockfd, &size, sizeof(size));
   size = from_fuji_size_prefix(size);

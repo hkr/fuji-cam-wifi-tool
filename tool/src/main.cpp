@@ -2,7 +2,7 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
+//#include <unistd.h>
 #include <errno.h>
 #include <stdint.h>
 
@@ -16,6 +16,7 @@
 #include <chrono>
 #include <vector>
 #include <string>
+#include <atomic>
 
 namespace fcwt {
 
