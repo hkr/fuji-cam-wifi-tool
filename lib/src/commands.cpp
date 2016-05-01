@@ -309,7 +309,7 @@ camera_capabilities parse_camera_caps(void const* data, size_t const size) {
 
 }  // namespace
 
-bool update_setting(int sockfd, iso_level iso) {
+bool update_setting(native_socket sockfd, iso_level iso) {
   auto const msg_1 =
       make_static_message(message_type::two_part, 0x2A, 0xD0, 0x00, 0x00);
   auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(iso));
@@ -329,29 +329,29 @@ bool update_setting(int sockfd, iso_level iso) {
 #endif
 
 
-bool update_setting(int sockfd, image_settings image) {
+bool update_setting(native_socket sockfd, image_settings image) {
   return false;
 }
 
-bool update_setting(int sockfd, film_simulation_mode film) {
+bool update_setting(native_socket sockfd, film_simulation_mode film) {
   return false;
 }
 
-bool update_setting(int sockfd, auto_focus_point point) {
+bool update_setting(native_socket sockfd, auto_focus_point point) {
   return false;
 }
 
-bool update_setting(int sockfd, white_balance_mode white_balance) {
+bool update_setting(native_socket sockfd, white_balance_mode white_balance) {
   return false;
 }
 
-bool update_setting(int sockfd, aperture_f_stop aperture) {
+bool update_setting(native_socket sockfd, aperture_f_stop aperture) {
   auto const msg = make_static_message(
       message_type::aperture, aperture == aperture_close_third_stop ? 1 : 0, 0, 0, 0);
   return fuji_message(sockfd, msg);
 }
 
-bool init_control_connection(int const sockfd, char const* deviceName,
+bool init_control_connection(native_socket const sockfd, char const* deviceName,
                              camera_capabilities* caps) {
   if (sockfd <= 0) return false;
 
@@ -413,7 +413,7 @@ bool init_control_connection(int const sockfd, char const* deviceName,
   return true;
 }
 
-void terminate_control_connection(int sockfd) {
+void terminate_control_connection(native_socket sockfd) {
   if (sockfd <= 0) return;
 
   LOG_INFO("terminate_control_connection");
@@ -422,7 +422,7 @@ void terminate_control_connection(int sockfd) {
   fuji_send(sockfd, &terminate, sizeof(terminate));
 }
 
-bool shutter(int const sockfd) {
+bool shutter(native_socket const sockfd) {
   if (sockfd <= 0) return false;
 
   LOG_INFO("shutter");
@@ -614,7 +614,7 @@ static bool parse_auto_focus(uint32_t const autofocus_point,
   return true;
 }
 
-bool current_settings(int sockfd, camera_settings& settings) {
+bool current_settings(native_socket sockfd, camera_settings& settings) {
   settings = camera_settings();
 
   auto const msg = generate<status_request_message>();

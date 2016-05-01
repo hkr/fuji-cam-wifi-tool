@@ -27,7 +27,7 @@ char const* to_string(message_type type) {
   }
 }
 
-bool fuji_message(int const sockfd, uint32_t const id, void const* message,
+bool fuji_message(native_socket const sockfd, uint32_t const id, void const* message,
                   size_t size) {
   fuji_send(sockfd, message, size);
 

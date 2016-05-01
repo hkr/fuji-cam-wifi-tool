@@ -20,7 +20,7 @@
 
 namespace fcwt {
 
-static void print_status(int sockfd) {
+static void print_status(native_socket sockfd) {
   auto const msg = generate<status_request_message>();
   printf("Status request %d\n", msg.id);
   fuji_send(sockfd, &msg, sizeof(msg));

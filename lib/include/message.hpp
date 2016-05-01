@@ -69,36 +69,36 @@ void print_message(static_message<N> const& msg, append_newline anl = newline) {
   if (anl == newline) printf("\n");
 }
 
-bool fuji_message(int const sockfd, uint32_t const id, void const* message,
+bool fuji_message(native_socket const sockfd, uint32_t const id, void const* message,
                   size_t size);
 
 template <size_t N>
-bool fuji_message(int const sockfd, const static_message<N>& msg) {
+bool fuji_message(native_socket const sockfd, const static_message<N>& msg) {
   printf("send: ");
   print_message(msg);
   return fuji_message(sockfd, msg.id, &msg, msg.size());
 }
 
 template <size_t N>
-void fuji_send(int sockfd, static_message<N> const& msg) {
+void fuji_send(native_socket sockfd, static_message<N> const& msg) {
   printf("send: ");
   print_message(msg);
   fuji_send(sockfd, &msg, msg.size());
 }
 
-inline void fuji_send(int sockfd, message_header const& msg) {
+inline void fuji_send(native_socket sockfd, message_header const& msg) {
   fuji_send(sockfd, &msg, sizeof(message_header));
 }
 
 template <size_t N1, size_t N2>
-bool fuji_twopart_message(int const sockfd, static_message<N1> const& msg1,
+bool fuji_twopart_message(native_socket const sockfd, static_message<N1> const& msg1,
                           static_message<N2> const& msg2) {
   fuji_send(sockfd, msg1);
   return fuji_message(sockfd, msg2);
 }
 
 template <size_t N>
-size_t fuji_receive_log(int sockfd, uint8_t(&data)[N]) {
+size_t fuji_receive_log(native_socket sockfd, uint8_t(&data)[N]) {
   size_t size = fuji_receive(sockfd, data, N);
   printf("receive %zu bytes [", size);
   print_hex(data, size, skip_newline);
