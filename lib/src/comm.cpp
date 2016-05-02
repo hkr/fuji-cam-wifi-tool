@@ -17,6 +17,7 @@
 #elif defined(_WIN32)
 #define NOMINMAX
 #include <winsock2.h>
+#include <Ws2tcpip.h>
 #endif
 
 #include "log.hpp"
@@ -24,6 +25,18 @@
 namespace fcwt {
 
 const char* const server_ipv4_addr = "192.168.0.1";
+
+static void close_socket(native_socket sockfd)
+{
+	if (sockfd)
+	{
+#if defined(_WIN32)
+		closesocket(sockfd);
+#elif defined(__unix__)
+		close(sockfd);
+#endif
+	}
+}
 
 struct sock::impl
 {
@@ -34,14 +47,7 @@ struct sock::impl
 
 	~impl()
 	{
-		if (sockfd)
-		{
-#if defined(_WIN32)
-			closesocket(sockfd);
-#elif defined(__unix__)
-			close(sockfd);
-#endif
-		}
+		close_socket(sockfd);
 	}
 };
 
@@ -64,19 +70,32 @@ void sock::swap(sock& other) {
 	swap(sockfd, other.sockfd);
 }
 
+static void set_nonblocking_io(native_socket sockfd, bool nonblocking)
+{
+#if defined(__unix__)
+	fcntl(sockfd, F_SETFL, nonblocking ? O_NONBLOCK : 0);  // for timeout
+#elif defined(_WIN32)
+	u_long arg = nonblocking ? 1 : 0;
+	ioctlsocket(sockfd, FIONBIO, &arg);
+#endif
+}
+
 sock connect_to_camera(int port) {
   // TODO: proper error handling
 
   const native_socket sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd < 0) fatal_error("Failed to create socket\n");
 
-#if defined(__unix__)
-  fcntl(sockfd, F_SETFL, O_NONBLOCK);  // for timeout
+  set_nonblocking_io(sockfd, true);  // for timeout
 
   sockaddr_in sa = {};
   sa.sin_family = AF_INET;
   sa.sin_port = htons(port);
+#if defined(__unix__)
   inet_pton(AF_INET, server_ipv4_addr, &sa.sin_addr);
+#elif defined(_WIN32)
+  InetPton(AF_INET, server_ipv4_addr, &sa.sin_addr);
+#endif
   connect(sockfd, reinterpret_cast<sockaddr*>(&sa), sizeof(sa));
 
   // timeout handling
@@ -87,25 +106,21 @@ sock connect_to_camera(int port) {
   tv.tv_sec = 1;
   tv.tv_usec = 0;
 
-  if (select(sockfd + 1, NULL, &fdset, NULL, &tv) == 1) {
+  if (select(static_cast<int>(sockfd + 1), NULL, &fdset, NULL, &tv) == 1) {
     int so_error = 0;
     socklen_t len = sizeof so_error;
-    getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &so_error, &len);
+    getsockopt(sockfd, SOL_SOCKET, SO_ERROR, (char*)&so_error, &len);
 
     if (so_error == 0) {
-      printf("Connection esatablished %s:%d (%d)\n", server_ipv4_addr, port,
-             sockfd);
-      fcntl(sockfd, F_SETFL, 0);
+      printf("Connection esatablished %s:%d (%lld)\n", server_ipv4_addr, port,
+             (long long) sockfd);
+	  set_nonblocking_io(sockfd, false);
       return sockfd;
     }
   }
 
   printf("Failed to connect\n");
-  closesocket(sockfd);
-
-#else defined(_WIN32)
-  // TODO
-#endif
+  close_socket(sockfd);
   
   return 0;
 }
