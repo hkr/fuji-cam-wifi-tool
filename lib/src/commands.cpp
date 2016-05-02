@@ -212,8 +212,8 @@ void parse_camera_caps_submessage(camera_capabilities& caps,
               16;  // first is type, next 3 are not ISO levels, unknown
           if (size >= offset) {
             caps.iso.numLevels =
-                std::min(size - offset, sizeof(caps.iso.levels)) /
-                sizeof(*caps.iso.levels);
+                static_cast<uint32_t>(std::min(size - offset, sizeof(caps.iso.levels)) /
+                sizeof(*caps.iso.levels));
             memcpy(caps.iso.levels, data + offset,
                    caps.iso.numLevels * sizeof(*caps.iso.levels));
           }
@@ -357,13 +357,13 @@ bool init_control_connection(native_socket const sockfd, char const* deviceName,
 
   if (!deviceName || !deviceName[0]) deviceName = "CameraClient";
 
-  LOG_INFO_FORMAT("init_control_connection (socket %d)", sockfd);
+  LOG_INFO_FORMAT("init_control_connection (socket %lld)", static_cast<long long>(sockfd));
   auto const reg_msg = generate_registration_message(deviceName);
   LOG_INFO("send hello");
   fuji_send(sockfd, &reg_msg, sizeof(reg_msg));
 
   uint8_t buffer[1024];
-  uint32_t const receivedBytes = fuji_receive(sockfd, buffer);
+  size_t const receivedBytes = fuji_receive(sockfd, buffer);
   uint8_t const message1_response_error[] = {0x05, 0x00, 0x00, 0x00,
                                              0x19, 0x20, 0x00, 0x00};
 
@@ -621,8 +621,8 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
   printf("Status request %d\n", msg.id);
   fuji_send(sockfd, &msg, sizeof(msg));
   uint8_t buf[1024];
-  uint32_t receivedBytes = fuji_receive(sockfd, buf);
-  printf("Status: %d bytes\n", receivedBytes);
+  size_t receivedBytes = fuji_receive(sockfd, buf);
+  printf("Status: %zd bytes\n", receivedBytes);
   print_hex(buf, receivedBytes);
   print_uint32(buf, receivedBytes);
   print_ascii(buf, receivedBytes);
@@ -656,9 +656,6 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
   memcpy(&autofocus_point, &buf[8 + 104], 4);
   success =
       success && parse_auto_focus(autofocus_point, settings.focus_point);
-
-  uint32_t aperture;
-  memcpy(&autofocus_point, &buf[8 + 104], 4);
 
   // TODO: pop-up flash and flash in general? Don't care for now.
 #if 0

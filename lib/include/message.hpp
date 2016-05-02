@@ -32,8 +32,7 @@ enum class message_type : uint16_t {
 };
 
 char const* to_string(message_type type);
-bool is_success_response(uint32_t const id, void const* buffer,
-                         uint32_t const size);
+bool is_success_response(uint32_t id, void const* buffer, size_t size);
 
 struct message_header {
   uint16_t index =

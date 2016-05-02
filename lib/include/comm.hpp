@@ -34,16 +34,16 @@ class sock {
 
 sock connect_to_camera(int port);
 
-uint32_t to_fuji_size_prefix(uint32_t sizeBytes);
-uint32_t from_fuji_size_prefix(uint32_t sizeBytes);
+size_t to_fuji_size_prefix(size_t sizeBytes);
+size_t from_fuji_size_prefix(size_t sizeBytes);
 
 void send_data(native_socket sockfd, void const* data, size_t sizeBytes);
 void receive_data(native_socket sockfd, void* data, size_t sizeBytes);
-void fuji_send(native_socket sockfd, void const* data, uint32_t sizeBytes);
+void fuji_send(native_socket sockfd, void const* data, size_t sizeBytes);
 
 // returns the total payload bytes, if this is more than sizeBytes the caller
 // needs to use receive_data to get the additional data
-size_t fuji_receive(native_socket sockfd, void* data, uint32_t sizeBytes);
+size_t fuji_receive(native_socket sockfd, void* data, size_t sizeBytes);
 
 template <size_t N>
 void fuji_send(native_socket sockfd, uint8_t const(&data)[N]) {
