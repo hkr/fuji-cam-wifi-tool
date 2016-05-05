@@ -26,6 +26,56 @@ namespace fcwt {
 
 const char* const server_ipv4_addr = "192.168.0.1";
 
+
+namespace {
+#if defined(_WIN32)
+
+	void print_socket_api_error()
+	{
+		int  err = WSAGetLastError();
+		char* s = NULL;
+		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+			NULL, err,
+			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+			(LPTSTR)&s, 0, NULL);
+		printf("%s\n", s);
+		LocalFree(s);
+	}
+
+	WSADATA* api_init()
+	{
+		struct wsa_data_holder
+		{
+			wsa_data_holder()
+				: valid(false)
+				, data()
+			{
+				int ver = MAKEWORD(2, 2);
+				valid = WSAStartup(ver, &data) == 0;
+				if (!valid)
+					print_socket_api_error();
+			}
+			~wsa_data_holder()
+			{
+				if (!valid)
+					return;
+
+				if (WSACleanup() != 0)
+					print_socket_api_error();
+			};
+			WSADATA data;
+			bool valid;
+		};
+		static wsa_data_holder wsa;
+		return wsa.valid ? &wsa.data : nullptr;
+	}
+
+#else
+	void print_socket_api_error() {} // TODO
+	void api_init() {}
+#endif
+} // namespace
+
 static void close_socket(native_socket sockfd)
 {
 	if (sockfd)
@@ -40,14 +90,14 @@ static void close_socket(native_socket sockfd)
 
 struct sock::impl
 {
-	native_socket sockfd;
-	impl(native_socket fd) : sockfd(fd) {}
+	native_socket sock;
+	impl(native_socket s) : sock(s) {}
 	impl(impl const&) = delete;
 	impl& operator=(impl const&) = delete;
 
 	~impl()
 	{
-		close_socket(sockfd);
+		close_socket(sock);
 	}
 };
 
@@ -57,11 +107,11 @@ sock::sock(sock&& other) : sockfd(std::move(other.sockfd)) { }
 
 sock::operator native_socket() const
 {
-	return sockfd ? sockfd->sockfd : 0;
+	return sockfd ? sockfd->sock : 0;
 }
 
 sock& sock::operator=(sock&& other) {
-  std::move(other.sockfd);
+  sockfd = std::move(other.sockfd);
   return *this;
 }
 
@@ -83,6 +133,8 @@ static void set_nonblocking_io(native_socket sockfd, bool nonblocking)
 sock connect_to_camera(int port) {
   // TODO: proper error handling
 
+  api_init();
+
   const native_socket sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd < 0) fatal_error("Failed to create socket\n");
 
@@ -96,7 +148,7 @@ sock connect_to_camera(int port) {
 #elif defined(_WIN32)
   InetPton(AF_INET, server_ipv4_addr, &sa.sin_addr);
 #endif
-  connect(sockfd, reinterpret_cast<sockaddr*>(&sa), sizeof(sa));
+ connect(sockfd, reinterpret_cast<sockaddr*>(&sa), sizeof(sa));
 
   // timeout handling
   fd_set fdset;
@@ -125,12 +177,12 @@ sock connect_to_camera(int port) {
   return 0;
 }
 
-size_t to_fuji_size_prefix(size_t sizeBytes) {
+static uint32_t to_fuji_size_prefix(uint32_t sizeBytes) {
   // TODO, 0x endianess
   return sizeBytes;
 }
 
-size_t from_fuji_size_prefix(size_t sizeBytes) {
+static uint32_t from_fuji_size_prefix(uint32_t sizeBytes) {
   // TODO, 0x endianess
   return sizeBytes;
 }
@@ -169,13 +221,13 @@ void receive_data(native_socket sockfd, void* data, size_t sizeBytes) {
 }
 
 void fuji_send(native_socket sockfd, void const* data, size_t sizeBytes) {
-  size_t const size = to_fuji_size_prefix(sizeBytes + sizeof(uint32_t));
+  uint32_t const size = to_fuji_size_prefix(static_cast<uint32_t>(sizeBytes) + sizeof(uint32_t));
   send_data(sockfd, &size, sizeof(uint32_t));
   send_data(sockfd, data, sizeBytes);
 }
 
 size_t fuji_receive(native_socket sockfd, void* data, size_t sizeBytes) {
-  size_t size = 0;
+  uint32_t size = 0;
   receive_data(sockfd, &size, sizeof(size));
   size = from_fuji_size_prefix(size);
   if (size < sizeof(size)) {
@@ -183,7 +235,7 @@ size_t fuji_receive(native_socket sockfd, void* data, size_t sizeBytes) {
     return 0;
   }
   size -= sizeof(size);
-  receive_data(sockfd, data, std::min(sizeBytes, size));
+  receive_data(sockfd, data, std::min(sizeBytes, static_cast<size_t>(size)));
   return size;
 }
 

@@ -34,9 +34,6 @@ class sock {
 
 sock connect_to_camera(int port);
 
-size_t to_fuji_size_prefix(size_t sizeBytes);
-size_t from_fuji_size_prefix(size_t sizeBytes);
-
 void send_data(native_socket sockfd, void const* data, size_t sizeBytes);
 void receive_data(native_socket sockfd, void* data, size_t sizeBytes);
 void fuji_send(native_socket sockfd, void const* data, size_t sizeBytes);

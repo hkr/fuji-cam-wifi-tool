@@ -369,7 +369,7 @@ bool init_control_connection(native_socket const sockfd, char const* deviceName,
 
   if (receivedBytes == sizeof(message1_response_error) &&
       memcmp(buffer, message1_response_error, receivedBytes) == 0) {
-    fatal_error("response on message1, 0x error");
+	  return false;
   }
 
   auto msg2 = make_static_message(message_type::start, 0x01, 0x00, 0x00, 0x00);
