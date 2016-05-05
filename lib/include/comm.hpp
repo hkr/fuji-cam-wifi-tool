@@ -14,7 +14,7 @@ const int jpg_stream_server_port = 55742;
 #ifdef _WIN32
 #define FCWT_USE_WINSOCK 1
 #elif defined(__unix__) || defined(__MACH__) || defined(__linux__)
-#define FCWT_USE_BSD_SOCKET 1
+#define FCWT_USE_BSD_SOCKETS 1
 #endif
 
 #if FCWT_USE_BSD_SOCKETS
