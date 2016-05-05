@@ -81,36 +81,36 @@ static void close_socket(native_socket sockfd)
 	{
 #if FCWT_USE_WINSOCK
 		closesocket(sockfd);
-#elif FCWT_USE_BSD_SOCKETS
+#elif FCWT_USE_WINSOCK
 		close(sockfd);
 #endif
 	}
 }
 
-struct sock::impl
+sock::sock(native_socket fd)
+	: sockfd(fd)
 {
-	native_socket sock;
-	impl(native_socket s) : sock(s) {}
-	impl(impl const&) = delete;
-	impl& operator=(impl const&) = delete;
+}
 
-	~impl()
-	{
-		close_socket(sock);
-	}
-};
+sock::~sock()
+{
+	close_socket(sockfd);
+}
 
-sock::sock(native_socket fd) : sockfd(new impl(fd)) {}
-sock::~sock() {}
-sock::sock(sock&& other) : sockfd(std::move(other.sockfd)) { }
+sock::sock(sock&& other)
+	: sockfd(other.sockfd)
+{
+	other.sockfd = 0;
+}
 
 sock::operator native_socket() const
 {
-	return sockfd ? sockfd->sock : 0;
+	return sockfd;
 }
 
 sock& sock::operator=(sock&& other) {
-  sockfd = std::move(other.sockfd);
+  sock tmp(std::move(other));
+  swap(tmp);
   return *this;
 }
 
@@ -123,7 +123,7 @@ static void set_nonblocking_io(native_socket sockfd, bool nonblocking)
 {
 #if FCWT_USE_BSD_SOCKETS
 	fcntl(sockfd, F_SETFL, nonblocking ? O_NONBLOCK : 0);  // for timeout
-#elif FCWT_USE_BSD_WINSOCK
+#elif FCWT_USE_WINSOCK
 	u_long arg = nonblocking ? 1 : 0;
 	ioctlsocket(sockfd, FIONBIO, &arg);
 #endif
@@ -144,8 +144,10 @@ sock connect_to_camera(int port) {
   sa.sin_port = htons(port);
 #if FCWT_USE_BSD_SOCKETS
   inet_pton(AF_INET, server_ipv4_addr, &sa.sin_addr);
-#elif FCWT_USE_BSD_WINSOCK
+#elif FCWT_USE_WINSOCK
   InetPton(AF_INET, server_ipv4_addr, &sa.sin_addr);
+#else
+#error need inet_pton
 #endif
  connect(sockfd, reinterpret_cast<sockaddr*>(&sa), sizeof(sa));
 
@@ -191,7 +193,7 @@ void send_data(native_socket sockfd, void const* data, size_t sizeBytes) {
   do {
 #if FCWT_USE_BSD_SOCKETS
 	ssize_t const result = write(sockfd, data, sizeBytes);
-#elif FCWT_USE_BSD_WINSOCK
+#elif FCWT_USE_WINSOCK
 	int const result = send(sockfd, static_cast<char const*>(data), static_cast<int>(sizeBytes), 0);
 #endif
     if (result < 0) {
@@ -207,7 +209,7 @@ void receive_data(native_socket sockfd, void* data, size_t sizeBytes) {
   while (sizeBytes > 0) {
 #if FCWT_USE_BSD_SOCKETS
     ssize_t const result = read(sockfd, data, sizeBytes);
-#elif FCWT_USE_BSD_WINSOCK
+#elif FCWT_USE_WINSOCK
 	int const result = recv(sockfd, static_cast<char*>(data), static_cast<int>(sizeBytes), 0);
 #endif
     if (result < 0) {

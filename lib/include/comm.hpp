@@ -11,18 +11,22 @@ namespace fcwt {
 const int control_server_port = 55740;
 const int jpg_stream_server_port = 55742;
 
-#define FCWT_USE_BSD_SOCKETS (defined(__unix__) || defined(__MACH__) || defined(__linux__))
-#define FCWT_USE_WINSOCK (defined(_WIN32) && !FCWT_USE_BSD_SOCKETS)
+#ifdef _WIN32
+#define FCWT_USE_WINSOCK 1
+#elif defined(__unix__) || defined(__MACH__) || defined(__linux__)
+#define FCWT_USE_BSD_SOCKET 1
+#endif
 
 #if FCWT_USE_BSD_SOCKETS
-typedef int native_socket;
+	typedef int native_socket;
 #elif FCWT_USE_WINSOCK
-typedef uintptr_t native_socket;
+	typedef uintptr_t native_socket;
+#else
+#	error unsupported platform
 #endif
 
 class sock {
-  struct impl;
-  std::unique_ptr<impl> sockfd;
+  native_socket sockfd;
 
  public:
   sock(native_socket fd = 0);
