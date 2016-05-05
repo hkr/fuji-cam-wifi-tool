@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <assert.h>
 
-#if defined(__unix__)
+#if FCWT_USE_BSD_SOCKETS
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -14,7 +14,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
-#elif defined(_WIN32)
+#elif FCWT_USE_WINSOCK
 #define NOMINMAX
 #include <winsock2.h>
 #include <Ws2tcpip.h>
@@ -28,7 +28,7 @@ const char* const server_ipv4_addr = "192.168.0.1";
 
 
 namespace {
-#if defined(_WIN32)
+#if FCWT_USE_WINSOCK
 
 	void print_socket_api_error()
 	{
@@ -69,7 +69,6 @@ namespace {
 		static wsa_data_holder wsa;
 		return wsa.valid ? &wsa.data : nullptr;
 	}
-
 #else
 	void print_socket_api_error() {} // TODO
 	void api_init() {}
@@ -80,9 +79,9 @@ static void close_socket(native_socket sockfd)
 {
 	if (sockfd)
 	{
-#if defined(_WIN32)
+#if FCWT_USE_WINSOCK
 		closesocket(sockfd);
-#elif defined(__unix__)
+#elif FCWT_USE_BSD_SOCKETS
 		close(sockfd);
 #endif
 	}
@@ -122,9 +121,9 @@ void sock::swap(sock& other) {
 
 static void set_nonblocking_io(native_socket sockfd, bool nonblocking)
 {
-#if defined(__unix__)
+#if FCWT_USE_BSD_SOCKETS
 	fcntl(sockfd, F_SETFL, nonblocking ? O_NONBLOCK : 0);  // for timeout
-#elif defined(_WIN32)
+#elif FCWT_USE_BSD_WINSOCK
 	u_long arg = nonblocking ? 1 : 0;
 	ioctlsocket(sockfd, FIONBIO, &arg);
 #endif
@@ -143,9 +142,9 @@ sock connect_to_camera(int port) {
   sockaddr_in sa = {};
   sa.sin_family = AF_INET;
   sa.sin_port = htons(port);
-#if defined(__unix__)
+#if FCWT_USE_BSD_SOCKETS
   inet_pton(AF_INET, server_ipv4_addr, &sa.sin_addr);
-#elif defined(_WIN32)
+#elif FCWT_USE_BSD_WINSOCK
   InetPton(AF_INET, server_ipv4_addr, &sa.sin_addr);
 #endif
  connect(sockfd, reinterpret_cast<sockaddr*>(&sa), sizeof(sa));
@@ -190,9 +189,9 @@ static uint32_t from_fuji_size_prefix(uint32_t sizeBytes) {
 void send_data(native_socket sockfd, void const* data, size_t sizeBytes) {
   bool retry = false;
   do {
-#if defined(__unix__)
+#if FCWT_USE_BSD_SOCKETS
 	ssize_t const result = write(sockfd, data, sizeBytes);
-#elif defined(_WIN32)
+#elif FCWT_USE_BSD_WINSOCK
 	int const result = send(sockfd, static_cast<char const*>(data), static_cast<int>(sizeBytes), 0);
 #endif
     if (result < 0) {
@@ -206,9 +205,9 @@ void send_data(native_socket sockfd, void const* data, size_t sizeBytes) {
 
 void receive_data(native_socket sockfd, void* data, size_t sizeBytes) {
   while (sizeBytes > 0) {
-#if defined(__unix__)
+#if FCWT_USE_BSD_SOCKETS
     ssize_t const result = read(sockfd, data, sizeBytes);
-#elif defined(_WIN32)
+#elif FCWT_USE_BSD_WINSOCK
 	int const result = recv(sockfd, static_cast<char*>(data), static_cast<int>(sizeBytes), 0);
 #endif
     if (result < 0) {

@@ -11,9 +11,12 @@ namespace fcwt {
 const int control_server_port = 55740;
 const int jpg_stream_server_port = 55742;
 
-#if defined(__unix__)
+#define FCWT_USE_BSD_SOCKETS (defined(__unix__) || defined(__MACH__) || defined(__linux__))
+#define FCWT_USE_WINSOCK (defined(_WIN32) && !FCWT_USE_BSD_SOCKETS)
+
+#if FCWT_USE_BSD_SOCKETS
 typedef int native_socket;
-#elif defined(_WIN32)
+#elif FCWT_USE_WINSOCK
 typedef uintptr_t native_socket;
 #endif
 
