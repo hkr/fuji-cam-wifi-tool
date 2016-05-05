@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string>
 
+#include "platform.hpp"
+
 #define LOG_INFO(str) printf("[INFO] " str "\n")
 #define LOG_INFO_FORMAT(fmt, ...) printf("[INFO] " fmt "\n", __VA_ARGS__)
 
@@ -22,8 +24,8 @@ void print_uint32(void const* data, size_t const sizeBytes,
                   append_newline anl = newline);
 void fatal_error(char const* msg);
 
-__attribute__((format(printf, 1, 2))) std::string string_format(
-    char const* format, ...);
+FCWT_FORMAT_PRINTF_FUNCTION std::string string_format(
+	FCWT_FORMAT_STRING(char const* format), ...);
 
 }  // namespace fcwt
 

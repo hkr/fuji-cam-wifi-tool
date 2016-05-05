@@ -2,7 +2,7 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
+//#include <unistd.h>
 #include <errno.h>
 #include <stdint.h>
 
@@ -16,16 +16,17 @@
 #include <chrono>
 #include <vector>
 #include <string>
+#include <atomic>
 
 namespace fcwt {
 
-static void print_status(int sockfd) {
+static void print_status(native_socket sockfd) {
   auto const msg = generate<status_request_message>();
   printf("Status request %d\n", msg.id);
   fuji_send(sockfd, &msg, sizeof(msg));
   uint8_t buf[1024];
-  uint32_t receivedBytes = fuji_receive(sockfd, buf);
-  printf("Status: %d bytes\n", receivedBytes);
+  size_t receivedBytes = fuji_receive(sockfd, buf);
+  printf("Status: %zd bytes\n", receivedBytes);
   print_hex(buf, receivedBytes);
   print_uint32(buf, receivedBytes);
   print_ascii(buf, receivedBytes);
@@ -43,9 +44,9 @@ void image_stream_main(std::atomic<bool>& flag) {
 
   unsigned int image = 0;
   while (flag) {
-    uint32_t receivedBytes =
+    size_t receivedBytes =
         fuji_receive(sockfd2, buffer.data(), buffer.size());
-    LOG_INFO_FORMAT("image_stream_main received %d bytes", receivedBytes);
+    LOG_INFO_FORMAT("image_stream_main received %zd bytes", receivedBytes);
 
     char filename[1024];
     snprintf(filename, sizeof(filename), "out/img_%d.jpg", image++);

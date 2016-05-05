@@ -27,15 +27,15 @@ char const* to_string(message_type type) {
   }
 }
 
-bool fuji_message(int const sockfd, uint32_t const id, void const* message,
+bool fuji_message(native_socket const sockfd, uint32_t const id, void const* message,
                   size_t size) {
   fuji_send(sockfd, message, size);
 
   uint8_t buffer[8];
-  uint32_t receivedBytes = fuji_receive_log(sockfd, buffer);
+  size_t receivedBytes = fuji_receive_log(sockfd, buffer);
 
   if (!is_success_response(id, buffer, receivedBytes)) {
-    LOG_INFO_FORMAT("received %d bytes", receivedBytes);
+    LOG_INFO_FORMAT("received %zd bytes", receivedBytes);
     print_hex(buffer, receivedBytes);
     return false;
   }
@@ -44,7 +44,7 @@ bool fuji_message(int const sockfd, uint32_t const id, void const* message,
 }
 
 bool is_success_response(uint32_t const id, void const* buffer,
-                         uint32_t const size) {
+                         size_t const size) {
   if (size != 8) return false;
 
   struct response_success {

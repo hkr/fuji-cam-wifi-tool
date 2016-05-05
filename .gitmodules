@@ -1,3 +1,3 @@
-[submodule "tool/src/linenoise"]
-	path = tool/src/linenoise
-	url = https://github.com/hkr/linenoise
+[submodule "tool/linenoise-ng"]
+	path = tool/linenoise-ng
+	url = https://github.com/hkr/linenoise-ng

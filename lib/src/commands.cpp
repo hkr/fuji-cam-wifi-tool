@@ -212,8 +212,8 @@ void parse_camera_caps_submessage(camera_capabilities& caps,
               16;  // first is type, next 3 are not ISO levels, unknown
           if (size >= offset) {
             caps.iso.numLevels =
-                std::min(size - offset, sizeof(caps.iso.levels)) /
-                sizeof(*caps.iso.levels);
+                static_cast<uint32_t>(std::min(size - offset, sizeof(caps.iso.levels)) /
+                sizeof(*caps.iso.levels));
             memcpy(caps.iso.levels, data + offset,
                    caps.iso.numLevels * sizeof(*caps.iso.levels));
           }
@@ -309,7 +309,7 @@ camera_capabilities parse_camera_caps(void const* data, size_t const size) {
 
 }  // namespace
 
-bool update_setting(int sockfd, iso_level iso) {
+bool update_setting(native_socket sockfd, iso_level iso) {
   auto const msg_1 =
       make_static_message(message_type::two_part, 0x2A, 0xD0, 0x00, 0x00);
   auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(iso));
@@ -329,47 +329,47 @@ bool update_setting(int sockfd, iso_level iso) {
 #endif
 
 
-bool update_setting(int sockfd, image_settings image) {
+bool update_setting(native_socket sockfd, image_settings image) {
   return false;
 }
 
-bool update_setting(int sockfd, film_simulation_mode film) {
+bool update_setting(native_socket sockfd, film_simulation_mode film) {
   return false;
 }
 
-bool update_setting(int sockfd, auto_focus_point point) {
+bool update_setting(native_socket sockfd, auto_focus_point point) {
   return false;
 }
 
-bool update_setting(int sockfd, white_balance_mode white_balance) {
+bool update_setting(native_socket sockfd, white_balance_mode white_balance) {
   return false;
 }
 
-bool update_setting(int sockfd, aperture_f_stop aperture) {
+bool update_setting(native_socket sockfd, aperture_f_stop aperture) {
   auto const msg = make_static_message(
       message_type::aperture, aperture == aperture_close_third_stop ? 1 : 0, 0, 0, 0);
   return fuji_message(sockfd, msg);
 }
 
-bool init_control_connection(int const sockfd, char const* deviceName,
+bool init_control_connection(native_socket const sockfd, char const* deviceName,
                              camera_capabilities* caps) {
   if (sockfd <= 0) return false;
 
   if (!deviceName || !deviceName[0]) deviceName = "CameraClient";
 
-  LOG_INFO_FORMAT("init_control_connection (socket %d)", sockfd);
+  LOG_INFO_FORMAT("init_control_connection (socket %lld)", static_cast<long long>(sockfd));
   auto const reg_msg = generate_registration_message(deviceName);
   LOG_INFO("send hello");
   fuji_send(sockfd, &reg_msg, sizeof(reg_msg));
 
   uint8_t buffer[1024];
-  uint32_t const receivedBytes = fuji_receive(sockfd, buffer);
+  size_t const receivedBytes = fuji_receive(sockfd, buffer);
   uint8_t const message1_response_error[] = {0x05, 0x00, 0x00, 0x00,
                                              0x19, 0x20, 0x00, 0x00};
 
   if (receivedBytes == sizeof(message1_response_error) &&
       memcmp(buffer, message1_response_error, receivedBytes) == 0) {
-    fatal_error("response on message1, 0x error");
+	  return false;
   }
 
   auto msg2 = make_static_message(message_type::start, 0x01, 0x00, 0x00, 0x00);
@@ -413,7 +413,7 @@ bool init_control_connection(int const sockfd, char const* deviceName,
   return true;
 }
 
-void terminate_control_connection(int sockfd) {
+void terminate_control_connection(native_socket sockfd) {
   if (sockfd <= 0) return;
 
   LOG_INFO("terminate_control_connection");
@@ -422,7 +422,7 @@ void terminate_control_connection(int sockfd) {
   fuji_send(sockfd, &terminate, sizeof(terminate));
 }
 
-bool shutter(int const sockfd) {
+bool shutter(native_socket const sockfd) {
   if (sockfd <= 0) return false;
 
   LOG_INFO("shutter");
@@ -614,15 +614,15 @@ static bool parse_auto_focus(uint32_t const autofocus_point,
   return true;
 }
 
-bool current_settings(int sockfd, camera_settings& settings) {
+bool current_settings(native_socket sockfd, camera_settings& settings) {
   settings = camera_settings();
 
   auto const msg = generate<status_request_message>();
   printf("Status request %d\n", msg.id);
   fuji_send(sockfd, &msg, sizeof(msg));
   uint8_t buf[1024];
-  uint32_t receivedBytes = fuji_receive(sockfd, buf);
-  printf("Status: %d bytes\n", receivedBytes);
+  size_t receivedBytes = fuji_receive(sockfd, buf);
+  printf("Status: %zd bytes\n", receivedBytes);
   print_hex(buf, receivedBytes);
   print_uint32(buf, receivedBytes);
   print_ascii(buf, receivedBytes);
@@ -656,9 +656,6 @@ bool current_settings(int sockfd, camera_settings& settings) {
   memcpy(&autofocus_point, &buf[8 + 104], 4);
   success =
       success && parse_auto_focus(autofocus_point, settings.focus_point);
-
-  uint32_t aperture;
-  memcpy(&autofocus_point, &buf[8 + 104], 4);
 
   // TODO: pop-up flash and flash in general? Don't care for now.
 #if 0

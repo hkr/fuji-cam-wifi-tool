@@ -1,5 +1,6 @@
 #include "log.hpp"
 
+#include <stdarg.h>
 #include <stdlib.h>
 #include <algorithm>
 #include <string.h>
@@ -35,8 +36,8 @@ void print_ascii(void const* data, size_t const sizeBytes, append_newline anl) {
 
 void print_uint32(void const* data, size_t sizeBytes, append_newline anl) {
   auto bytes = static_cast<uint8_t const*>(data);
-  int const numInts = sizeBytes / 4;
-  for (int i = 0; i < numInts; ++i) {
+  size_t const numInts = sizeBytes / 4;
+  for (size_t i = 0; i < numInts; ++i) {
     uint32_t u;
     memcpy(&u, &bytes[i * 4], 4);
     if (i > 0)
