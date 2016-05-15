@@ -26,10 +26,8 @@ namespace fcwt {
 
 const char* const server_ipv4_addr = "192.168.0.1";
 
-
 namespace {
 #if FCWT_USE_WINSOCK
-
 	void print_socket_api_error()
 	{
 		int  err = WSAGetLastError();

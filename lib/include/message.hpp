@@ -25,7 +25,7 @@ enum class message_type : uint16_t {
   camera_remote = 0x101c,  // last command before camera remote works
 
   camera_last_image = 0x9022,
-  camera_remote_x = 0x902b,  // unknown, app uses it before camera_remote,
+  camera_capabilities = 0x902b,  // unknown, app uses it before camera_remote,
                              // returns 392 bytes of data, maybe the current
                              // settings?
   aperture = 0x902d, // relative adjustement of aperature by one third stop

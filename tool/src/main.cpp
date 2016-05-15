@@ -2,7 +2,6 @@
 
 #include <string.h>
 #include <stdlib.h>
-//#include <unistd.h>
 #include <errno.h>
 #include <stdint.h>
 
@@ -19,20 +18,6 @@
 #include <atomic>
 
 namespace fcwt {
-
-static void print_status(native_socket sockfd) {
-  auto const msg = generate<status_request_message>();
-  printf("Status request %d\n", msg.id);
-  fuji_send(sockfd, &msg, sizeof(msg));
-  uint8_t buf[1024];
-  size_t receivedBytes = fuji_receive(sockfd, buf);
-  printf("Status: %zd bytes\n", receivedBytes);
-  print_hex(buf, receivedBytes);
-  print_uint32(buf, receivedBytes);
-  print_ascii(buf, receivedBytes);
-
-  receivedBytes = fuji_receive(sockfd, buf);
-}
 
 void image_stream_main(std::atomic<bool>& flag) {
   LOG_INFO("image_stream_main");
@@ -141,7 +126,9 @@ int main() {
             printf("failure\n");
           else {
             print(caps);
-            print_status(sockfd);
+			camera_settings settings;
+			if (current_settings(sockfd, settings))
+				print(settings);
           }
         } else {
           printf("already connected\n");
@@ -149,7 +136,6 @@ int main() {
       } break;
       case command::shutter: {
         if (!shutter(sockfd)) printf("failure\n");
-        print_status(sockfd);
 
       } break;
 
@@ -159,7 +145,6 @@ int main() {
       } break;
 
       case command::info: {
-        print_status(sockfd);
         camera_settings settings;
         if (current_settings(sockfd, settings))
           print(settings);
@@ -167,10 +152,12 @@ int main() {
 
       case command::set_iso: {
         if (splitLine.size() > 1) {
-          unsigned long iso = std::stoul(splitLine[1]);
+          unsigned long iso = std::stoul(splitLine[1], 0, 0);
           printf("%s(%lu)\n", splitLine[0].c_str(), iso);
           if (update_setting(sockfd, iso_level(iso))) {
-            print_status(sockfd);
+			camera_settings settings;
+			if (current_settings(sockfd, settings))
+			  print(settings);
           } else {
             printf("Failed to set ISO %lu\n", iso);
           }

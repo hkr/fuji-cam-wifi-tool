@@ -316,19 +316,6 @@ bool update_setting(native_socket sockfd, iso_level iso) {
   return fuji_twopart_message(sockfd, msg_1, msg_2);
 }
 
-#if 0
-// 1 f stop?
-// 10:00:00:00 01:00:2d:90 cd:00:00:00 01:00:00:00
-
-// 10:00:00:00 01:00:2d:90 6b:0b:00:00 00:00:00:00
-// 10:00:00:00 01:00:2d:90 71:0b:00:00 00:00:00:00
-
-80:00:00:00:02:00:15:10:70 0b:00:00:13:00:1b:d2:00:00:00:00:0c:50:02:00:00:00:12:50:00:00:00:00:29:d2:b3:0f:00:00:2a:d2:8f:06:00:00:0e:50:03:00:00:00:42:d2:02:00:00:00:18:d0:02:00:00:00:41:d2:06:00:00:00:2a:d0:00:19:00:80:2b:d0:ff:ff:ff:ff:28:d0:00:00:00:00:07:50:dc:00:00:00:10:50:00:00:00:00:05:50:0b:80:00:00:01:d0:01:00:00:00:0a:50:01:80:00:00:7c:d1:04:04:02:03:09:d2:00:00:00:00
-
-80:00:00:00:02:00:15:10:72:0b:00:00:13:00:1b:d2:00:00:00:00:0c:50:02:00:00:00:12:50:00:00:00:00:29:d2:b3:0f:00:00:2a:d2:8f:06:00:00:0e:50:03:00:00:00:42:d2:02:00:00:00:18:d0:02:00:00:00:41:d2:06:00:00:00:2a:d0:00:19:00:80:2b:d0:ff:ff:ff:ff:28:d0:00:00:00:00:07:50:c8:00:00:00:10:50:00:00:00:00:05:50:0b:80:00:00:01:d0:01:00:00:00:0a:50:01:80:00:00:7c:d1:04:04:02:03:09:d2:00:00:00:00
-#endif
-
-
 bool update_setting(native_socket sockfd, image_settings image) {
   return false;
 }
@@ -402,7 +389,7 @@ bool init_control_connection(native_socket const sockfd, char const* deviceName,
       make_static_message_followup(msg6_1, 0x02, 0x00, 0x02, 0x00);
   fuji_twopart_message(sockfd, msg6_1, msg6_2);
 
-  fuji_send(sockfd, make_static_message(message_type::camera_remote_x));
+  fuji_send(sockfd, make_static_message(message_type::camera_capabilities));
   auto size = fuji_receive_log(sockfd, buffer);
   print_uint32(buffer, size);
   print_ascii(buffer, size);
@@ -552,14 +539,14 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
   settings = camera_settings();
 
   auto const msg = generate<status_request_message>();
-  printf("Status request %d\n", msg.id);
+  // printf("Status request %d\n", msg.id);
   fuji_send(sockfd, &msg, sizeof(msg));
   uint8_t buf[1024];
   size_t receivedBytes = fuji_receive(sockfd, buf);
-  printf("Status: %zd bytes\n", receivedBytes);
-  print_hex(buf, receivedBytes);
-  print_uint32(buf, receivedBytes);
-  print_ascii(buf, receivedBytes);
+  //printf("Status: %zd bytes\n", receivedBytes);
+  //print_hex(buf, receivedBytes);
+  //print_uint32(buf, receivedBytes);
+  //print_ascii(buf, receivedBytes);
 
   bool success = true;
 

@@ -21,7 +21,7 @@ char const* to_string(message_type type) {
     MESSAGE_TYPE_TO_STRING_CASE(full_image);
     MESSAGE_TYPE_TO_STRING_CASE(camera_remote);
     MESSAGE_TYPE_TO_STRING_CASE(camera_last_image);
-    MESSAGE_TYPE_TO_STRING_CASE(camera_remote_x);
+    MESSAGE_TYPE_TO_STRING_CASE(camera_capabilities);
     default:
       return "";
   }
