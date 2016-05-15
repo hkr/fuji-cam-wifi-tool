@@ -62,7 +62,7 @@ void image_stream_main(std::atomic<bool>& flag) {
 }
 
 char const* comamndStrings[] = {"connect", "shutter", "stream", "info",
-                                "set_iso", "aperture"};
+                                "set_iso", "aperture", "white_balance" };
 
 enum class command {
   connect,
@@ -71,6 +71,7 @@ enum class command {
   info,
   set_iso,
   aperture,
+  white_balance,
   unknown,
   count = unknown
 };
@@ -176,16 +177,17 @@ int main() {
         }
       } break;
 
-      case command::aperture: {
+      case command::white_balance: {
         if (splitLine.size() > 1) {
-          int const aperture = std::stoi(splitLine[1]);
-          printf("%s(%d)\n", splitLine[0].c_str(), aperture);
-          if (update_setting(sockfd, aperture > 0 ? aperture_close_third_stop : aperture_open_third_stop)) {
+          int const wbvalue = std::stoi(splitLine[1], 0, 0);
+          printf("%s(%d)\n", splitLine[0].c_str(), wbvalue);
+          white_balance_mode wb;
+          if (parse_white_balance_mode(wbvalue, wb) && update_setting(sockfd, wb)) {
             camera_settings settings;
             if (current_settings(sockfd, settings))
               print(settings);
           } else {
-            printf("Failed to set aperture %d\n", aperture);
+            printf("Failed to set white_balance %d\n", wbvalue);
           }
         }
       } break;

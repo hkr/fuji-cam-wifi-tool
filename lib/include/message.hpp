@@ -128,6 +128,11 @@ inline std::array<uint8_t, 4> make_byte_array(uint32_t x) {
            static_cast<uint8_t>(x >> 16), static_cast<uint8_t>(x >> 24)}};
 }
 
+inline std::array<uint8_t, 2> make_byte_array(uint16_t x) {
+  return{ { static_cast<uint8_t>(x), static_cast<uint8_t>(x >> 8) } };
+}
+
+
 template <size_t N>
 static_message<N> make_static_message(message_type type,
                                       std::array<uint8_t, N> const& data) {

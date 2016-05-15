@@ -342,7 +342,12 @@ bool update_setting(native_socket sockfd, auto_focus_point point) {
 }
 
 bool update_setting(native_socket sockfd, white_balance_mode white_balance) {
-  return false;
+  //10:00:00:00 01:00:16:10 68:00:00:00 05:50:00:00
+  //0e:00:00:00 02:00:16:10 68:00:00:00 06:80
+  auto const msg_1 =
+    make_static_message(message_type::two_part, 0x05, 0x50, 0x00, 0x00);
+  auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(static_cast<uint16_t>(white_balance)));
+  return fuji_twopart_message(sockfd, msg_1, msg_2);
 }
 
 bool update_setting(native_socket sockfd, aperture_f_stop aperture) {
@@ -457,84 +462,13 @@ bool shutter(native_socket const sockfd) {
 #endif
 }
 
-static bool parse_white_balance_mode(uint32_t const value,
-                                     white_balance_mode& mode) {
-  switch (value) {
-    default:
-      return false;
-    case 2:
-      mode = white_balance_auto;
-      break;
-    case 4:
-      mode = white_balance_fine;
-      break;
-    case 0x800C:
-      mode = white_balance_custom;
-      break;
-    case 0x800B:
-      mode = white_balance_temperature;
-      break;
-    case 0x8006:
-      mode = white_balance_shade;
-      break;
-    case 0x8001:
-      mode = white_balance_fluorescent_1;
-      break;
-    case 0x8002:
-      mode = white_balance_fluorescent_2;
-      break;
-    case 0x8003:
-      mode = white_balance_fluorescent_3;
-      break;
-    case 6:
-      mode = white_balance_incandescent;
-      break;
-    case 0x800A:
-      mode = white_balance_underwater;
-      break;
-  }
-  return true;
-}
-
-static bool parse_film_simulation_mode(uint32_t const value,
+static bool parse_film_simulation_mode(uint32_t value,
                                        film_simulation_mode& mode) {
-  switch (value >> 16) {
-    default:
-      return false;
-    case 1:
-      mode = film_simulation_standard;
-      break;
-    case 2:
-      mode = film_simulation_vivid;
-      break;
-    case 3:
-      mode = film_simulation_soft;
-      break;
-    case 11:
-      mode = film_simulation_classic_chrome;
-      break;
-    case 6:
-      mode = film_simulation_pro_neg_hi;
-      break;
-    case 7:
-      mode = film_simulation_pro_neg_std;
-      break;
-    case 4:
-      mode = film_simulation_monochrome;
-      break;
-    case 8:
-      mode = film_simulation_monochrome_y_filter;
-      break;
-    case 9:
-      mode = film_simulation_monochrome_r_filter;
-      break;
-    case 10:
-      mode = film_simulation_monochrome_g_filter;
-      break;
-    case 5:
-      mode = film_simulation_sepia;
-      break;
-  }
+	value >>= 16;
+	if (value == 0 || value >> film_simulation_count)
+		return false;
+ 
+  mode = static_cast<film_simulation_mode>(value);
   return true;
 }
 

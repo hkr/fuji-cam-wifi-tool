@@ -50,35 +50,37 @@ struct auto_focus_point {
 std::string to_string(auto_focus_point const& focus_point);
 
 enum film_simulation_mode {
-  film_simulation_standard,
-  film_simulation_vivid,
-  film_simulation_soft,
-  film_simulation_classic_chrome,
-  film_simulation_pro_neg_hi,
-  film_simulation_pro_neg_std,
-  film_simulation_monochrome,
-  film_simulation_monochrome_y_filter,
-  film_simulation_monochrome_r_filter,
-  film_simulation_monochrome_g_filter,
-  film_simulation_sepia
+  film_simulation_standard = 1,
+  film_simulation_vivid = 2,
+  film_simulation_soft = 3,
+  film_simulation_monochrome = 4,
+  film_simulation_sepia = 5,
+  film_simulation_pro_neg_hi = 6,
+  film_simulation_pro_neg_std = 7,
+  film_simulation_monochrome_y_filter = 8,
+  film_simulation_monochrome_r_filter = 9,
+  film_simulation_monochrome_g_filter = 10,
+  film_simulation_classic_chrome = 11,
+  film_simulation_count
 };
 
 char const* to_string(film_simulation_mode film_simulation);
 
 enum white_balance_mode {
-  white_balance_auto,
-  white_balance_custom,
-  white_balance_temperature,
-  white_balance_fine,
-  white_balance_shade,
-  white_balance_fluorescent_1,
-  white_balance_fluorescent_2,
-  white_balance_fluorescent_3,
-  white_balance_incandescent,
-  white_balance_underwater
+  white_balance_auto = 2,
+  white_balance_fine = 4,
+  white_balance_incandescent = 6,
+  white_balance_fluorescent_1 = 0x8001,
+  white_balance_fluorescent_2 = 0x8002,
+  white_balance_fluorescent_3 = 0x8003,
+  white_balance_shade = 0x8006,
+  white_balance_underwater = 0x800A,
+  white_balance_temperature = 0x800B,
+  white_balance_custom = 0x800C 
 };
 
 char const* to_string(white_balance_mode white_balance);
+bool parse_white_balance_mode(uint16_t const value, white_balance_mode& mode);
 
 struct camera_settings {
   uint32_t iso;

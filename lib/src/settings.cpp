@@ -78,6 +78,26 @@ char const* to_string(white_balance_mode const white_balance) {
   FCWT_UNREACHABLE;
 }
 
+#define CASE_ASSIGN_AND_BREAK(r, x) case x: r = x; break
+
+bool parse_white_balance_mode(uint16_t const value, white_balance_mode& mode) {
+  switch (value) {
+  default:
+    return false;
+    CASE_ASSIGN_AND_BREAK(mode, white_balance_auto);
+    CASE_ASSIGN_AND_BREAK(mode, white_balance_fine);
+    CASE_ASSIGN_AND_BREAK(mode, white_balance_custom);
+    CASE_ASSIGN_AND_BREAK(mode, white_balance_temperature);
+    CASE_ASSIGN_AND_BREAK(mode, white_balance_shade);
+    CASE_ASSIGN_AND_BREAK(mode, white_balance_fluorescent_1);
+    CASE_ASSIGN_AND_BREAK(mode, white_balance_fluorescent_2);
+    CASE_ASSIGN_AND_BREAK(mode, white_balance_fluorescent_3);
+    CASE_ASSIGN_AND_BREAK(mode, white_balance_incandescent);
+    CASE_ASSIGN_AND_BREAK(mode, white_balance_underwater);
+  }
+  return true;
+}
+
 std::string to_string(auto_focus_point const& focus_point) {
   return string_format("auto_focus_point: (%d, %d)",
                        static_cast<int>(focus_point.x),
