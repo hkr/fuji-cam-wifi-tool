@@ -9,7 +9,7 @@
 #include "comm.hpp"
 #include "commands.hpp"
 
-#include "linenoise/linenoise.h"
+#include "linenoise.h"
 
 #include <thread>
 #include <chrono>

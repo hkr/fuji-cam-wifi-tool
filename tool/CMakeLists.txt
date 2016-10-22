@@ -4,7 +4,9 @@ add_subdirectory(linenoise-ng)
 
 project(fuji_cam_wifi_tool)
 file(GLOB fuji_cam_wifi_tool_sources ${CMAKE_CURRENT_SOURCE_DIR} src/*.cpp)
-file(GLOB fuji_cam_wifi_tool_sources ${CMAKE_CURRENT_SOURCE_DIR} src/*.cpp)
+file(GLOB fuji_cam_wifi_tool_headers ${CMAKE_CURRENT_SOURCE_DIR} src/*.hpp)
+
+include_directories(${PROJECT_SOURCE_DIR}/linenoise-ng/include)
 
 add_executable(fuji_cam_wifi_tool ${fuji_cam_wifi_tool_sources} ${fuji_cam_wifi_tool_headers})
 target_link_libraries(fuji_cam_wifi_tool fuji_cam_wifi linenoise)
