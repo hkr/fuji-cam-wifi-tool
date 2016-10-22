@@ -31,6 +31,7 @@ Mac OS X:
 ```
 Steps to connect the tool to the camera:
 - Press the "Wireless Communication" button on the X-T10
+- Connect your computer to the camera's Wifi Access Point
 - Press the "OK (Change)" button (only needed the first time, fuji_cam_wifi_tool connects as "HackedClient", see main.cpp)
 - Send the "connect" command.
 - On success the tool should print a lot of debug data and the current camera settings
