@@ -12,6 +12,9 @@ add_executable(fuji_cam_wifi_tool ${fuji_cam_wifi_tool_sources} ${fuji_cam_wifi_
 target_link_libraries(fuji_cam_wifi_tool fuji_cam_wifi linenoise)
 set_property(TARGET fuji_cam_wifi_tool PROPERTY CXX_STANDARD 11)
 
+find_package(Threads)
+target_link_libraries(fuji_cam_wifi_tool ${CMAKE_THREAD_LIBS_INIT})
+
 if(WIN32)
   target_link_libraries(fuji_cam_wifi_tool wsock32 ws2_32)
 endif()

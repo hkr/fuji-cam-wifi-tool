@@ -16,6 +16,7 @@
 #include <vector>
 #include <string>
 #include <atomic>
+#include <algorithm>
 
 namespace fcwt {
 
