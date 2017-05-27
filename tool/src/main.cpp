@@ -48,7 +48,7 @@ void image_stream_main(std::atomic<bool>& flag) {
 }
 
 char const* comamndStrings[] = {"connect", "shutter", "stream", "info",
-                                "set_iso", "aperture", "white_balance" };
+                                "set_iso", "aperture", "shutter_speed", "white_balance" };
 
 enum class command {
   connect,
@@ -57,6 +57,7 @@ enum class command {
   info,
   set_iso,
   aperture,
+  shutter_speed,
   white_balance,
   unknown,
   count = unknown
@@ -161,6 +162,38 @@ int main() {
               print(settings);
           } else {
             printf("Failed to set ISO %lu\n", iso);
+          }
+        }
+      } break;
+
+      case command::aperture: {
+        if (splitLine.size() > 1) {
+          int aperture_stops = std::stoi(splitLine[1], 0, 0);
+          printf("%s(%i)\n", splitLine[0].c_str(), aperture_stops);
+          if (aperture_stops != 0) {
+            if (update_setting(sockfd, aperture_stops < 0 ? aperture_open_third_stop : aperture_close_third_stop)) {
+              camera_settings settings;
+              if (current_settings(sockfd, settings))
+                print(settings);
+            } else {
+              printf("Failed to adjust aperture %i\n", aperture_stops);
+            }
+          }
+        }
+      } break;
+
+      case command::shutter_speed: {
+        if (splitLine.size() > 1) {
+          int shutter_stops = std::stoi(splitLine[1], 0, 0);
+          printf("%s(%i)\n", splitLine[0].c_str(), shutter_stops);
+          if (shutter_stops != 0) {
+            if (update_setting(sockfd, shutter_stops < 0 ? shutter_speed_one_stop_slower : shutter_speed_one_stop_faster)) {
+              camera_settings settings;
+              if (current_settings(sockfd, settings))
+                print(settings);
+            } else {
+              printf("Failed to adjust shutter speed %i\n", shutter_stops);
+            }
           }
         }
       } break;

@@ -27,12 +27,18 @@ enum aperture_f_stop {
     aperture_close_third_stop
 };
 
+enum shutter_speed_stop {
+	shutter_speed_one_stop_faster,
+	shutter_speed_one_stop_slower
+};
+
 bool update_setting(native_socket sockfd, iso_level iso);
 bool update_setting(native_socket sockfd, image_settings image);
 bool update_setting(native_socket sockfd, film_simulation_mode film);
 bool update_setting(native_socket sockfd, auto_focus_point point);
 bool update_setting(native_socket sockfd, white_balance_mode white_balance);
 bool update_setting(native_socket sockfd, aperture_f_stop aperture);
+bool update_setting(native_socket sockfd, shutter_speed_stop shutter_speed);
 
 }  // namespace fcwt
 

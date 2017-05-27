@@ -29,6 +29,7 @@ enum class message_type : uint16_t {
                              // returns 392 bytes of data, maybe the current
                              // settings?
   aperture = 0x902d, // relative adjustement of aperature by one third stop
+  shutter_speed = 0x902c, // relative adjustment of sutter speed
 };
 
 char const* to_string(message_type type);

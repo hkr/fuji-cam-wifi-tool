@@ -343,6 +343,12 @@ bool update_setting(native_socket sockfd, aperture_f_stop aperture) {
   return fuji_message(sockfd, msg);
 }
 
+bool update_setting(native_socket sockfd, shutter_speed_stop shutter_speed) {
+  auto const msg = make_static_message(
+      message_type::shutter_speed, shutter_speed == shutter_speed_one_stop_faster ? 1 : 0, 0, 0, 0);
+  return fuji_message(sockfd, msg);
+}
+
 bool init_control_connection(native_socket const sockfd, char const* deviceName,
                              camera_capabilities* caps) {
   if (sockfd <= 0) return false;
@@ -543,8 +549,8 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
   fuji_send(sockfd, &msg, sizeof(msg));
   uint8_t buf[1024];
   size_t receivedBytes = fuji_receive(sockfd, buf);
-  //printf("Status: %zd bytes\n", receivedBytes);
-  //print_hex(buf, receivedBytes);
+  printf("Status: %zd bytes\n", receivedBytes);
+  print_hex(buf, receivedBytes);
   //print_uint32(buf, receivedBytes);
   //print_ascii(buf, receivedBytes);
 
