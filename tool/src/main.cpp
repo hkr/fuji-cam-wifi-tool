@@ -127,9 +127,9 @@ int main() {
             printf("failure\n");
           else {
             print(caps);
-			camera_settings settings;
-			if (current_settings(sockfd, settings))
-				print(settings);
+            camera_settings settings;
+            if (current_settings(sockfd, settings))
+              print(settings);
           }
         } else {
           printf("already connected\n");
@@ -156,9 +156,9 @@ int main() {
           unsigned long iso = std::stoul(splitLine[1], 0, 0);
           printf("%s(%lu)\n", splitLine[0].c_str(), iso);
           if (update_setting(sockfd, iso_level(iso))) {
-			camera_settings settings;
-			if (current_settings(sockfd, settings))
-			  print(settings);
+            camera_settings settings;
+            if (current_settings(sockfd, settings))
+              print(settings);
           } else {
             printf("Failed to set ISO %lu\n", iso);
           }
