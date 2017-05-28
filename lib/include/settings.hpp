@@ -82,6 +82,12 @@ enum white_balance_mode {
 char const* to_string(white_balance_mode white_balance);
 bool parse_white_balance_mode(uint16_t const value, white_balance_mode& mode);
 
+enum shutter_type {
+  mechanical_shutter,
+  electronic_shutter
+};
+char const* to_string(shutter_type shutter);
+
 struct camera_settings {
   uint32_t iso;
   bool one_div_shutter_speed;
@@ -91,6 +97,9 @@ struct camera_settings {
   auto_focus_point focus_point;
   image_settings image;
   aperture_f_number aperture;
+  int32_t exposure;
+  shutter_type shutter;
+  int32_t battery_level;
 };
 
 void print(camera_settings const& settings);

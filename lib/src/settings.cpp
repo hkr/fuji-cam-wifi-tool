@@ -62,6 +62,15 @@ char const* to_string(film_simulation_mode const film_simulation) {
   FCWT_UNREACHABLE;
 }
 
+char const* to_string(shutter_type shutter)
+{
+  switch (shutter) {
+    CASE_RETURN_ENUM_TO_STRING(mechanical_shutter);
+    CASE_RETURN_ENUM_TO_STRING(electronic_shutter);
+  }
+  FCWT_UNREACHABLE; 
+}
+
 char const* to_string(white_balance_mode const white_balance) {
   switch (white_balance) {
     CASE_RETURN_ENUM_TO_STRING(white_balance_auto);
@@ -121,6 +130,9 @@ void print(camera_settings const& settings) {
   printf("\taperture: %s\n", to_string(settings.aperture).c_str());
   printf("\twhite_balance: %s\n", to_string(settings.white_balance));
   printf("\tfilm_simulation_mode: %s\n", to_string(settings.film_simulation));
+  printf("\texposure: %.1f\n", static_cast<double>(settings.exposure) / 1000.0);
+  printf("\tshutter_type: %s\n", to_string(settings.shutter));
+  printf("\tbattery_level: %d\n", settings.battery_level);
   printf("\t%s\n", to_string(settings.focus_point).c_str());
   printf("\t%s\n", to_string(settings.image).c_str());
 }

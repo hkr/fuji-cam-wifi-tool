@@ -160,6 +160,9 @@ void parse_camera_caps_submessage(camera_capabilities& caps,
           // -3     48 F4
           struct shutter_speed_auto {
             uint8_t unknown0[3];
+            // !!
+            // TODO: this probably works similar to exposure in current_settings()!!
+            // !!
             uint8_t exposure_compensation_dial_unknown;  // this changes when
                                                          // turning the dial,
                                                          // don't know what it
@@ -367,7 +370,7 @@ bool init_control_connection(native_socket const sockfd, char const* deviceName,
 
   if (receivedBytes == sizeof(message1_response_error) &&
       memcmp(buffer, message1_response_error, receivedBytes) == 0) {
-	  return false;
+    return false;
   }
 
   auto msg2 = make_static_message(message_type::start, 0x01, 0x00, 0x00, 0x00);
@@ -457,9 +460,8 @@ bool shutter(native_socket const sockfd) {
 
 static bool parse_film_simulation_mode(uint32_t value,
                                        film_simulation_mode& mode) {
-	value >>= 16;
-	if (value == 0 || value >> film_simulation_count)
-		return false;
+  if (value == 0)
+    return false;
  
   mode = static_cast<film_simulation_mode>(value);
   return true;
@@ -469,7 +471,7 @@ static bool parse_image_settings(uint32_t const format,
                                  uint32_t const size_aspect,
                                  uint32_t const image_space_on_sdcard,
                                  image_settings& image) {
-  switch (format >> 16) {
+  switch (format) {
     default:
       return false;
     case 2:
@@ -529,15 +531,15 @@ static bool parse_image_settings(uint32_t const format,
       break;
   }
 
-  image.space_on_sdcard = image_space_on_sdcard >> 16;
+  image.space_on_sdcard = image_space_on_sdcard;
 
   return true;
 }
 
 static bool parse_auto_focus(uint32_t const autofocus_point,
                              auto_focus_point& focus_point) {
-  focus_point.x = static_cast<uint8_t>(autofocus_point >> 24);
-  focus_point.y = static_cast<uint8_t>((autofocus_point >> 16) & 0xff);
+  focus_point.x = static_cast<uint8_t>((autofocus_point >> 8) & 0xff);
+  focus_point.y = static_cast<uint8_t>((autofocus_point >> 0) & 0xff);
   return true;
 }
 
@@ -550,56 +552,123 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
   uint8_t buf[1024];
   size_t receivedBytes = fuji_receive(sockfd, buf);
   printf("Status: %zd bytes\n", receivedBytes);
-  print_hex(buf, receivedBytes);
+  //print_hex(buf, receivedBytes);
   //print_uint32(buf, receivedBytes);
   //print_ascii(buf, receivedBytes);
 
-  bool success = true;
+  uint8_t* ptr = buf;
+  ptr += 8; // skip header
+  uint16_t numSettings;
+  memcpy(&numSettings, ptr, 2);
+  ptr += 2;
 
-  memcpy(&settings.aperture.value, &buf[8 + 76], 4);
+  uint32_t image_format = 0;
+  uint32_t image_size_aspect = 0;
+  uint32_t image_space_on_sdcard = 0;
 
-  uint32_t white_balance;
-  memcpy(&white_balance, &buf[8 + 88], 4);
-  success = success &&
-            parse_white_balance_mode(white_balance, settings.white_balance);
+  for (uint16_t i = 0; i < numSettings; ++i)
+  {
+    uint16_t code;
+    uint32_t value;
+    uint8_t* data = ptr + i * 6;
+    memcpy(&code, data, 2);
+    memcpy(&value, data + 2, 4);
 
-  uint32_t film_simulation;
-  memcpy(&film_simulation, &buf[8 + 92], 4);
-  success = success && parse_film_simulation_mode(film_simulation,
-                                                  settings.film_simulation);
+    switch(code)
+    {
+    case 0xD209:
+      printf("Known but unused setting code=%x, value=%x\n", (unsigned)code, (unsigned)value);
+      break;   
+    default:
+      printf("Unknown setting code=%x, value=%x\n", (unsigned)code, (unsigned)value);
+      break;
+    case 0xD240:
+    {
+      const uint32_t shutter_speed_value_mask = ~0x80000000;
+      settings.shutter_speed = value & shutter_speed_value_mask;
+      settings.one_div_shutter_speed = settings.shutter_speed != value;
+    }
+    break;
+    case 0x5007:
+    {
+      settings.aperture.value = value;
+    }
+    break;
+    case 0x5005:
+    {
+      parse_white_balance_mode(value, settings.white_balance);
+    }
+    break;
+    case 0xD001:
+    {
+      parse_film_simulation_mode(value, settings.film_simulation);
+    }
+    break;
+    case 0xD02A:
+    {
+      settings.iso = value;
+    }
+    break;
+    case 0xD018:
+    {
+      image_format = value;
+    }
+    break;
+    case 0xD241:
+    {
+      image_size_aspect = value;
+    }
+    break;
+    case 0xD229:
+    {
+      image_space_on_sdcard = value;
+    }
+    break;
+    case 0xD17C:
+    {
+      parse_auto_focus(value, settings.focus_point);
+    }
+    break;
+    case 0x500c:
+    {
+      // flash mode: pop-up 8001, 
+    }
+    break;
+    case 0x5012:
+    {
+      // self-timer, value is probably seconds, 0 = disabled
+    }
+    break;
+    case 0x500a:
+    {
+      // focus mode? S/C=8001 M=1
+    }
+    break;
+    case 0x5010:
+    {
+      settings.exposure = static_cast<int16_t>(static_cast<uint16_t>(value));
+    }
+    break;
+    case 0xD028:
+    {
+      // probably shutter type, 0 = MS+ES, 1 = ES
+      settings.shutter = value ? electronic_shutter : mechanical_shutter;
+    }
+    break;
+    case 0xd242:
+    {
+      // battery level, 4 full, 0 empty?
+      settings.battery_level = value;
+    }
+    }
+  }
 
-  memcpy(&settings.iso, &buf[8 + 58], 4);
-
-  uint32_t shutter_speed;
-  memcpy(&shutter_speed, &buf[8 + 70], 4);
-  const uint32_t shutter_speed_value_mask = ~0x80000000;
-  settings.shutter_speed = shutter_speed & shutter_speed_value_mask;
-  settings.one_div_shutter_speed = settings.shutter_speed != shutter_speed;
-  
-  uint32_t image_format, image_size_aspect, image_space_on_sdcard;
-  memcpy(&image_format, &buf[8 + 44], 4);
-  memcpy(&image_size_aspect, &buf[8 + 52], 4);
-  memcpy(&image_space_on_sdcard, &buf[8 + 20], 4);
-  success = success && parse_image_settings(image_format, image_size_aspect, 
+  parse_image_settings(image_format, image_size_aspect, 
           image_space_on_sdcard, settings.image);
 
-  // only seems to work for single point, have not found data for 'zone'.
-  uint32_t autofocus_point;
-  memcpy(&autofocus_point, &buf[8 + 104], 4);
-  success =
-      success && parse_auto_focus(autofocus_point, settings.focus_point);
-
-  // TODO: pop-up flash and flash in general? Don't care for now.
-#if 0
-  uint32_t flash;
-  memcpy(&flash, &buf[8 + 8], 4);
-  printf("flash raw=%08X\n", flash);
-#endif
-
   receivedBytes = fuji_receive(sockfd, buf);
-  // TODO error check
 
-  return success;
+  return true;
 }
 
 }  // namespace fcwt
