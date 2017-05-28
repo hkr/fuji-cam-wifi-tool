@@ -570,6 +570,12 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
 
   memcpy(&settings.iso, &buf[8 + 58], 4);
 
+  uint32_t shutter_speed;
+  memcpy(&shutter_speed, &buf[8 + 70], 4);
+  const uint32_t shutter_speed_value_mask = ~0x80000000;
+  settings.shutter_speed = shutter_speed & shutter_speed_value_mask;
+  settings.one_div_shutter_speed = settings.shutter_speed != shutter_speed;
+  
   uint32_t image_format, image_size_aspect, image_space_on_sdcard;
   memcpy(&image_format, &buf[8 + 44], 4);
   memcpy(&image_size_aspect, &buf[8 + 52], 4);

@@ -84,6 +84,8 @@ bool parse_white_balance_mode(uint16_t const value, white_balance_mode& mode);
 
 struct camera_settings {
   uint32_t iso;
+  bool one_div_shutter_speed;
+  uint32_t shutter_speed;
   white_balance_mode white_balance;
   film_simulation_mode film_simulation;
   auto_focus_point focus_point;
