@@ -581,8 +581,7 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
   memcpy(&image_size_aspect, &buf[8 + 52], 4);
   memcpy(&image_space_on_sdcard, &buf[8 + 20], 4);
   success = success && parse_image_settings(image_format, image_size_aspect, 
-          image_space_on_sdcard,
-                                            settings.image);
+          image_space_on_sdcard, settings.image);
 
   // only seems to work for single point, have not found data for 'zone'.
   uint32_t autofocus_point;
