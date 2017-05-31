@@ -147,7 +147,7 @@ sock connect_to_camera(int port) {
 #else
 #error need inet_pton
 #endif
- connect(sockfd, reinterpret_cast<sockaddr*>(&sa), sizeof(sa));
+  connect(sockfd, reinterpret_cast<sockaddr*>(&sa), sizeof(sa));
 
   // timeout handling
   fd_set fdset;
@@ -165,7 +165,7 @@ sock connect_to_camera(int port) {
     if (so_error == 0) {
       printf("Connection esatablished %s:%d (%lld)\n", server_ipv4_addr, port,
              (long long) sockfd);
-	  set_nonblocking_io(sockfd, false);
+      set_nonblocking_io(sockfd, false);
       return sockfd;
     }
   }

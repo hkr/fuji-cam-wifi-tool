@@ -18,7 +18,7 @@ bool init_control_connection(native_socket sockfd, char const* deviceName,
                              camera_capabilities* caps);
 void terminate_control_connection(native_socket sockfd);
 
-bool shutter(native_socket const sockfd);
+bool shutter(native_socket const sockfd, native_socket const sockfd2, const char* thumbnail = 0);
 
 bool current_settings(native_socket sockfd, camera_settings& settings);
 

@@ -9,6 +9,7 @@
 namespace fcwt {
 
 const int control_server_port = 55740;
+const int async_response_server_port = 55741;
 const int jpg_stream_server_port = 55742;
 
 #ifdef _WIN32

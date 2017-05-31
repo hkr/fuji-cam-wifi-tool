@@ -22,16 +22,16 @@ namespace fcwt {
 
 void image_stream_main(std::atomic<bool>& flag) {
   LOG_INFO("image_stream_main");
-  sock const sockfd2 = connect_to_camera(jpg_stream_server_port);
+  sock const sockfd3 = connect_to_camera(jpg_stream_server_port);
 
   std::vector<uint8_t> buffer(1024 * 1024);
 
-  if (sockfd2 <= 0) return;
+  if (sockfd3 <= 0) return;
 
   unsigned int image = 0;
   while (flag) {
     size_t receivedBytes =
-        fuji_receive(sockfd2, buffer.data(), buffer.size());
+        fuji_receive(sockfd3, buffer.data(), buffer.size());
     LOG_INFO_FORMAT("image_stream_main received %zd bytes", receivedBytes);
 
     char filename[1024];
@@ -48,7 +48,8 @@ void image_stream_main(std::atomic<bool>& flag) {
 }
 
 char const* comamndStrings[] = {"connect", "shutter", "stream", "info",
-                                "set_iso", "aperture", "shutter_speed", "white_balance" };
+                                "set_iso", "aperture", "shutter_speed",
+                                "white_balance", "current_settings" };
 
 enum class command {
   connect,
@@ -59,6 +60,7 @@ enum class command {
   aperture,
   shutter_speed,
   white_balance,
+  current_settings,
   unknown,
   count = unknown
 };
@@ -109,6 +111,7 @@ int main() {
   linenoiseSetCompletionCallback(completion);
 
   sock sockfd;
+  sock sockfd2;
   std::atomic<bool> imageStreamFlag(true);
   std::thread imageStreamThread;
   camera_capabilities caps = {};
@@ -131,13 +134,14 @@ int main() {
             camera_settings settings;
             if (current_settings(sockfd, settings))
               print(settings);
+            sockfd2 = connect_to_camera(async_response_server_port);
           }
         } else {
           printf("already connected\n");
         }
       } break;
       case command::shutter: {
-        if (!shutter(sockfd)) printf("failure\n");
+        if (!shutter(sockfd, sockfd2)) printf("failure\n");
 
       } break;
 
@@ -211,6 +215,14 @@ int main() {
             printf("Failed to set white_balance %d\n", wbvalue);
           }
         }
+      } break;
+
+      case command::current_settings: {
+        camera_settings settings;
+        if (current_settings(sockfd, settings))
+          print(settings);
+        else
+          printf("fail\n");
       } break;
 
       default: { printf("Unreconized command: %s\n", line.c_str()); }

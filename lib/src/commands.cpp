@@ -423,39 +423,55 @@ void terminate_control_connection(native_socket sockfd) {
   fuji_send(sockfd, &terminate, sizeof(terminate));
 }
 
-bool shutter(native_socket const sockfd) {
+bool shutter(native_socket const sockfd, native_socket const sockfd2, const char* thumbnail) {
   if (sockfd <= 0) return false;
 
   LOG_INFO("shutter");
-  return fuji_message(
+  bool result = fuji_message(
       sockfd, make_static_message(message_type::shutter, 0x00, 0x00, 0x00, 0x00,
                                   0x00, 0x00, 0x00, 0x00));
+  if (!result)
+    return false;
 
-#if 0
-  // Not sure why we don't get the image as response
   uint8_t buffer[20 * 1024];
   uint32_t receivedBytes = 0;
 
-  uint32_t lastMsgId = 0;
-  bool retry = true;
-  while (retry)
-  {
-    LOG_INFO("shutter_message_2");
-    auto const reqImg = make_static_message(message_type::camera_last_image);
-    lastMsgId = reqImg.id;
-    fuji_send(sockfd, reqImg);
-
-    receivedBytes = fuji_receive(sockfd, buffer);
-    LOG_INFO_FORMAT("received %d bytes", receivedBytes);
+  if (sockfd2) {
+    receivedBytes = fuji_receive(sockfd2, buffer);
+    LOG_INFO_FORMAT("received %d bytes (async1)", receivedBytes);
     print_hex(buffer, receivedBytes);
-    retry = receivedBytes <= 8;
-    
-    receivedBytes = fuji_receive(sockfd, buffer);
-    LOG_INFO_FORMAT("received %d bytes", receivedBytes);
+    receivedBytes = fuji_receive(sockfd2, buffer);
+    LOG_INFO_FORMAT("received %d bytes (async2)", receivedBytes);
     print_hex(buffer, receivedBytes);
   }
-  return is_success_response(lastMsgId, buffer, receivedBytes);
-#endif
+
+  uint32_t lastMsgId = 0;
+  auto const reqImg = make_static_message(message_type::camera_last_image);
+  lastMsgId = reqImg.id;
+  fuji_send(sockfd, reqImg);
+
+  receivedBytes = fuji_receive(sockfd, buffer);
+  LOG_INFO_FORMAT("received %d bytes (thumbnail)", receivedBytes);
+  if (thumbnail && sockfd2 && receivedBytes > 8) {
+    if (FILE* out = fopen(thumbnail, "wb")) {
+      fwrite(buffer + 8, receivedBytes - 8, 1, out);
+      fclose(out);
+    }
+  }
+
+  receivedBytes = fuji_receive(sockfd, buffer);
+  LOG_INFO_FORMAT("received %d bytes (response)", receivedBytes);
+  print_hex(buffer, receivedBytes);
+
+  const bool success = is_success_response(lastMsgId, buffer, receivedBytes);
+
+  if (sockfd2) {
+    receivedBytes = fuji_receive(sockfd2, buffer);
+    LOG_INFO_FORMAT("received %d bytes (async3)", receivedBytes);
+    print_hex(buffer, receivedBytes);
+  }
+
+  return success;
 }
 
 static bool parse_film_simulation_mode(uint32_t value,
