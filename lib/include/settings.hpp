@@ -102,6 +102,11 @@ struct camera_settings {
   int32_t battery_level;
 };
 
+inline uint64_t shutter_speed_microseconds(camera_settings const& settings) {
+  double msec = settings.one_div_shutter_speed ? 1000000.0 / settings.shutter_speed : settings.shutter_speed;
+  return msec * 1000.0;
+}
+
 void print(camera_settings const& settings);
 
 }  // namespace fcwt

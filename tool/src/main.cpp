@@ -48,7 +48,8 @@ void image_stream_main(std::atomic<bool>& flag) {
 }
 
 char const* comamndStrings[] = {"connect", "shutter", "stream", "info",
-                                "set_iso", "aperture", "shutter_speed",
+                                "set_iso", "set_aperture", "aperture",
+                                "shutter_speed", "set_shutter_speed",
                                 "white_balance", "current_settings" };
 
 enum class command {
@@ -57,8 +58,10 @@ enum class command {
   stream,
   info,
   set_iso,
+  set_aperture,
   aperture,
   shutter_speed,
+  set_shutter_speed,
   white_balance,
   current_settings,
   unknown,
@@ -170,6 +173,28 @@ int main() {
         }
       } break;
 
+      case command::set_aperture: {
+        if (splitLine.size() > 1) {
+          int const aperture = static_cast<int>(std::stod(splitLine[1]) * 100.0);
+          camera_settings settings;
+          if (aperture > 0 && aperture < 6400 && 
+              current_settings(sockfd, settings) && settings.aperture.value > 0 &&
+              aperture != settings.aperture.value) {
+            const aperture_f_stop change = aperture < settings.aperture.value ? aperture_open_third_stop : aperture_close_third_stop;
+            uint32_t last_aperture = 0;
+            do {
+              last_aperture = settings.aperture.value;
+              if (!update_setting(sockfd, change))
+                break;
+            } while(current_settings(sockfd, settings) && 
+                    settings.aperture.value != last_aperture && 
+                    aperture != settings.aperture.value &&
+                    change == (aperture < settings.aperture.value ? aperture_open_third_stop : aperture_close_third_stop));
+            print(settings);
+          } 
+        }
+      } break;
+
       case command::aperture: {
         if (splitLine.size() > 1) {
           int aperture_stops = std::stoi(splitLine[1], 0, 0);
@@ -202,6 +227,31 @@ int main() {
         }
       } break;
 
+      case command::set_shutter_speed: {
+        if (splitLine.size() > 1) {
+          std::size_t pos = 0;
+          double nom, denom;
+          int res = std::sscanf(splitLine[1].c_str(), "%lf/%lf", &nom, &denom);
+          if (res > 0) {
+            const uint64_t shutter_speed_microsec = (res == 1 ? nom : nom / denom) * 1000000.0;
+            camera_settings settings;
+            if (current_settings(sockfd, settings) && settings.shutter_speed > 0 &&
+                shutter_speed_microsec != shutter_speed_microseconds(settings)) {
+              const shutter_speed_stop change = shutter_speed_microsec < shutter_speed_microseconds(settings) ? shutter_speed_one_stop_faster : shutter_speed_one_stop_slower;
+              uint64_t last_shutter_speed = 0;
+              do {
+                last_shutter_speed = shutter_speed_microseconds(settings);
+                if (!update_setting(sockfd, change))
+                  break;
+              } while(current_settings(sockfd, settings) && 
+                      shutter_speed_microseconds(settings) != last_shutter_speed && 
+                      shutter_speed_microsec != shutter_speed_microseconds(settings) &&
+                      change == (shutter_speed_microsec < shutter_speed_microseconds(settings) ? shutter_speed_one_stop_faster : shutter_speed_one_stop_slower));
+              print(settings);
+            }
+          } 
+        }
+      } break;
       case command::white_balance: {
         if (splitLine.size() > 1) {
           int const wbvalue = std::stoi(splitLine[1], 0, 0);
