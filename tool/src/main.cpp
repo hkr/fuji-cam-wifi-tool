@@ -18,12 +18,15 @@
 #include <atomic>
 #include <algorithm>
 
+#ifdef WITH_OPENCV
 #include <opencv2/opencv.hpp>
 
 using namespace cv;
+#endif
 
 namespace fcwt {
 
+#ifdef WITH_OPENCV
 void image_stream_cv_main(std::atomic<bool>& flag) {
   LOG_INFO("image_stream_cv_main");
   sock const sockfd3 = connect_to_camera(jpg_stream_server_port);
@@ -51,6 +54,7 @@ void image_stream_cv_main(std::atomic<bool>& flag) {
     waitKey(25);
   }
 }
+#endif
 
 void image_stream_main(std::atomic<bool>& flag) {
   LOG_INFO("image_stream_main");
@@ -79,16 +83,19 @@ void image_stream_main(std::atomic<bool>& flag) {
   }
 }
 
-char const* comamndStrings[] = {"connect", "shutter", "stream", "stream_cv",
+char const* comamndStrings[] = {"connect", "shutter", "stream",
                                 "info", "set_iso", "set_aperture", "aperture",
                                 "shutter_speed", "set_shutter_speed",
-                                "white_balance", "current_settings" };
+                                "white_balance", "current_settings",
+#ifdef WITH_OPENCV
+                                "stream_cv",
+#endif
+};
 
 enum class command {
   connect,
   shutter,
   stream,
-  stream_cv,
   info,
   set_iso,
   set_aperture,
@@ -97,6 +104,9 @@ enum class command {
   set_shutter_speed,
   white_balance,
   current_settings,
+#ifdef WITH_OPENCV
+  stream_cv,
+#endif
   unknown,
   count = unknown
 };
@@ -150,7 +160,9 @@ int main() {
   sock sockfd2;
   std::atomic<bool> imageStreamFlag(true);
   std::thread imageStreamThread;
+#ifdef WITH_OPENCV
   std::thread imageStreamCVThread;
+#endif
   camera_capabilities caps = {};
 
   std::string line;
@@ -187,10 +199,12 @@ int main() {
             std::thread(([&]() { image_stream_main(imageStreamFlag); }));
       } break;
 
+#ifdef WITH_OPENCV
       case command::stream_cv: {
         imageStreamCVThread =
             std::thread(([&]() { image_stream_cv_main(imageStreamFlag); }));
       } break;
+#endif
 
       case command::info: {
         camera_settings settings;
@@ -323,10 +337,12 @@ int main() {
     imageStreamThread.join();
   }
 
+#ifdef WITH_OPENCV
   if (imageStreamCVThread.joinable()) {
     imageStreamFlag = false;
     imageStreamCVThread.join();
   }
+#endif
 
   terminate_control_connection(sockfd);
 
