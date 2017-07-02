@@ -18,7 +18,39 @@
 #include <atomic>
 #include <algorithm>
 
+#include <opencv2/opencv.hpp>
+
+using namespace cv;
+
 namespace fcwt {
+
+void image_stream_cv_main(std::atomic<bool>& flag) {
+  LOG_INFO("image_stream_cv_main");
+  sock const sockfd3 = connect_to_camera(jpg_stream_server_port);
+
+  std::vector<uint8_t> buffer(1024 * 1024);
+
+  if (sockfd3 <= 0) return;
+
+  unsigned int image = 0;
+  namedWindow( "Display window", WINDOW_AUTOSIZE );// Create a window for display.
+  while (flag) {
+    size_t receivedBytes =
+        fuji_receive(sockfd3, buffer.data(), buffer.size());
+
+    int const header = 14;  // not sure what's in the first 14 bytes
+    Mat rawData = Mat( 1, receivedBytes, CV_8UC1, &buffer[header]);
+    Mat decodedImage  =  imdecode( rawData , CV_LOAD_IMAGE_COLOR);
+
+    if ( decodedImage.data == NULL )
+    {
+        LOG_WARN("couldn't decode image");
+    }
+    imshow( "Display window", decodedImage );
+
+    waitKey(25);
+  }
+}
 
 void image_stream_main(std::atomic<bool>& flag) {
   LOG_INFO("image_stream_main");
@@ -47,8 +79,8 @@ void image_stream_main(std::atomic<bool>& flag) {
   }
 }
 
-char const* comamndStrings[] = {"connect", "shutter", "stream", "info",
-                                "set_iso", "set_aperture", "aperture",
+char const* comamndStrings[] = {"connect", "shutter", "stream", "stream_cv",
+                                "info", "set_iso", "set_aperture", "aperture",
                                 "shutter_speed", "set_shutter_speed",
                                 "white_balance", "current_settings" };
 
@@ -56,6 +88,7 @@ enum class command {
   connect,
   shutter,
   stream,
+  stream_cv,
   info,
   set_iso,
   set_aperture,
@@ -117,6 +150,7 @@ int main() {
   sock sockfd2;
   std::atomic<bool> imageStreamFlag(true);
   std::thread imageStreamThread;
+  std::thread imageStreamCVThread;
   camera_capabilities caps = {};
 
   std::string line;
@@ -151,6 +185,11 @@ int main() {
       case command::stream: {
         imageStreamThread =
             std::thread(([&]() { image_stream_main(imageStreamFlag); }));
+      } break;
+
+      case command::stream_cv: {
+        imageStreamCVThread =
+            std::thread(([&]() { image_stream_cv_main(imageStreamFlag); }));
       } break;
 
       case command::info: {
@@ -282,6 +321,11 @@ int main() {
   if (imageStreamThread.joinable()) {
     imageStreamFlag = false;
     imageStreamThread.join();
+  }
+
+  if (imageStreamCVThread.joinable()) {
+    imageStreamFlag = false;
+    imageStreamCVThread.join();
   }
 
   terminate_control_connection(sockfd);
