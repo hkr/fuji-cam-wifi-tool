@@ -12,8 +12,20 @@ add_executable(fuji_cam_wifi_tool ${fuji_cam_wifi_tool_sources} ${fuji_cam_wifi_
 target_link_libraries(fuji_cam_wifi_tool fuji_cam_wifi linenoise)
 set_property(TARGET fuji_cam_wifi_tool PROPERTY CXX_STANDARD 11)
 
-find_package(Threads)
+find_package(Threads REQUIRED)
 target_link_libraries(fuji_cam_wifi_tool ${CMAKE_THREAD_LIBS_INIT})
+
+
+option(WITH_OPENCV "Build with OpenCV" OFF)
+
+if(WITH_OPENCV)
+    find_package(OpenCV)
+    target_link_libraries(fuji_cam_wifi_tool ${OpenCV_LIBS})
+
+    IF(OpenCV_FOUND)
+        ADD_DEFINITIONS(-DWITH_OPENCV)
+    ENDIF()
+endif()
 
 if(WIN32)
   target_link_libraries(fuji_cam_wifi_tool wsock32 ws2_32)
