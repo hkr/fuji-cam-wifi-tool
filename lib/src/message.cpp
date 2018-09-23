@@ -35,8 +35,7 @@ bool fuji_message(native_socket const sockfd, uint32_t const id, void const* mes
   size_t receivedBytes = fuji_receive_log(sockfd, buffer);
 
   if (!is_success_response(id, buffer, receivedBytes)) {
-    LOG_INFO_FORMAT("received %zd bytes", receivedBytes);
-    print_hex(buffer, receivedBytes);
+    log(LOG_DEBUG, string_format("received %zd bytes ", receivedBytes).append(hex_format(buffer, receivedBytes)));
     return false;
   }
 
@@ -56,10 +55,8 @@ bool is_success_response(uint32_t const id, void const* buffer,
   success.id = id;
   bool const result = memcmp(&success, buffer, 8) == 0;
   if (!result) {
-    LOG_INFO("expected: ");
-    print_hex(&success, 8);
-    LOG_INFO("actual: ");
-    print_hex(buffer, 8);
+    log(LOG_WARN, std::string("expected: ").append(hex_format(&success, 8)));
+    log(LOG_WARN, std::string("actual: ").append(hex_format(buffer, 8)));
   }
   return result;
 }

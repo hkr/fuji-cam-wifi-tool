@@ -141,18 +141,21 @@ void parse_camera_caps_submessage(camera_capabilities& caps,
 
   switch (type.y) {
     default: {
-      printf("printf_camera_caps_submessage, unknown type (%04X/%04X)\n",
-             static_cast<int>(type.x), static_cast<int>(type.y));
-      print_hex(data, size);
+      std::string pre = string_format("Submessage of unknown type (%04X/%04X) ",
+                            static_cast<int>(type.x), static_cast<int>(type.y));
+      log(LOG_ERROR, hex_format(data, size).insert(0, pre));
     } break;
     case 3: {
       switch (type.x) {
-        default:
-          printf("printf_camera_caps_submessage, unknown type (%04X/%04X)\n",
-                 static_cast<int>(type.x), static_cast<int>(type.y));
+        default: {
+          std::string pre = string_format("Submessage of unknown type (%04X/%04X) ",
+                                static_cast<int>(type.x), static_cast<int>(type.y));
+          log(LOG_ERROR, hex_format(data, size).insert(0, pre));
+        } break;
         case 0x5010:  // Shutter speed auto
         {
-          print_hex(data, size);
+          log(LOG_DEBUG, "EXPOSURE_CORRECTION");
+          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
           // +1/3   4D 01
           // +1     EB 03
           // -1     18 FC
@@ -189,21 +192,41 @@ void parse_camera_caps_submessage(camera_capabilities& caps,
     case 4: {
       switch (type.x) {
         case 0x5007: {
+          log(LOG_DEBUG, "EXPOSURE");
+          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
+
           uint16_t aperture;
           memcpy(&aperture, data + 7, 2);
-          print_hex(data + 4, size - 4);
           caps.aperture.value = aperture;
         } break;
-        default:
-          printf("printf_camera_caps_submessage, unknown type (%04X/%04X)\n",
-                 static_cast<int>(type.x), static_cast<int>(type.y));
-        case 0x5012:
-        case 0x500C:
-        case 0x5005:
-        case 0xD001:
+        default: {
+          std::string pre = string_format("Submessage of unknown type (%04X/%04X) ",
+                                static_cast<int>(type.x), static_cast<int>(type.y));
+          log(LOG_ERROR, hex_format(data, size).insert(0, pre));
+        } break;
+        case 0x5012: {
+          log(LOG_DEBUG, "TIMER");
+          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
+        } break;
+
+        case 0x500C: {
+          log(LOG_DEBUG, "FLASH");
+          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
+        } break;
+
+        case 0x5005: {
+          log(LOG_DEBUG, "WHITE_BALANCE");
+          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
+        } break;
+
+        case 0xD001: {
+          log(LOG_DEBUG, "FILM_SIMULATION");
+          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
+        } break;
+
         case 0xD019: {
-          printf("Submessage: ");
-          print_hex(data, size);
+          log(LOG_DEBUG, "RECMODE_ENABLE");
+          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
         } break;
       }
     } break;
@@ -211,6 +234,8 @@ void parse_camera_caps_submessage(camera_capabilities& caps,
     case 6: {
       switch (type.x) {
         case 0xD02A: {
+          log(LOG_DEBUG, "ISO");
+          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
           const size_t offset =
               16;  // first is type, next 3 are not ISO levels, unknown
           if (size >= offset) {
@@ -223,6 +248,8 @@ void parse_camera_caps_submessage(camera_capabilities& caps,
         } break;
 
         case 0xD240: {
+          log(LOG_DEBUG, "SHUTTER_SPEED");
+          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
 // don't know what caps.shutter_speed[1] means
 #if 0
           B: Shutter speed: 1/30s 255 00020200
@@ -233,14 +260,12 @@ void parse_camera_caps_submessage(camera_capabilities& caps,
           Shutter speed: 1/250s 255 00020280
           A: Shutter speed: 1/0s 3 07070000
 #endif
-          printf("Shutter-speed:\n");
           struct shutter_speed_status {
             uint32_t unknown0;
             uint32_t shutter_speed[2];
             uint32_t unknown1[2];
           };
           print_uint32(data + 4, size - 4);
-          print_hex(data + 4, size - 4);
           assert(size == sizeof(shutter_speed_status) + 4);
           shutter_speed_status shutterStatus;
           memcpy(&shutterStatus, data + 4, sizeof(shutterStatus));
@@ -254,14 +279,15 @@ void parse_camera_caps_submessage(camera_capabilities& caps,
           }
         } break;
         case 0xD17C: {
-          printf("Autofocus: ");
-          print_hex(data + 4, size - 4);
+          log(LOG_DEBUG, "S1_LOCK (or autofocus)");
+          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
         } break;
 
-        default:
-          printf("printf_camera_caps_submessage, unknown type (%04X/%04X)\n",
-                 static_cast<int>(type.x), static_cast<int>(type.y));
-          break;
+        default: {
+          std::string pre = string_format("Submessage of unknown type (%04X/%04X) ",
+                                static_cast<int>(type.x), static_cast<int>(type.y));
+          log(LOG_ERROR, hex_format(data, size).insert(0, pre));
+        } break;
       }
     } break;
   }
@@ -279,16 +305,14 @@ camera_capabilities parse_camera_caps(void const* data, size_t const size) {
   while (remainingBytes > 0) {
     // sub-message size
     if (remainingBytes < 4) {
-      printf(
-          "Inconsistent message when getting next "
-          "submessage(remaingBytes=%zu)\n",
-          remainingBytes);
+      log(LOG_ERROR, string_format("Inconsistent message when getting next "
+                        "submessage(remaingBytes=%zu)", remainingBytes));
       break;
     }
     uint32_t subMsgSize = 0;
     memcpy(&subMsgSize, bytes, sizeof(subMsgSize));
     if (subMsgSize < 4) {
-      printf("Inconsistent submessage(subMsgSize=%d)\n", subMsgSize);
+      log(LOG_ERROR, string_format("Inconsistent submessage(subMsgSize=%d)", subMsgSize));
       break;
     }
     subMsgSize -= 4;
@@ -297,7 +321,7 @@ camera_capabilities parse_camera_caps(void const* data, size_t const size) {
 
     // sub-message actual sub-message
     if (remainingBytes < subMsgSize) {
-      printf("Inconsistent message (subMsgSize=%d)\n", subMsgSize);
+      log(LOG_ERROR, string_format("Inconsistent submessage(subMsgSize=%d)", subMsgSize));
       break;
     }
 
@@ -358,9 +382,10 @@ bool init_control_connection(native_socket const sockfd, char const* deviceName,
 
   if (!deviceName || !deviceName[0]) deviceName = "CameraClient";
 
-  LOG_INFO_FORMAT("init_control_connection (socket %lld)", static_cast<long long>(sockfd));
+  log(LOG_INFO, string_format("init_control_connection (socket %lld)",
+                              static_cast<long long>(sockfd)));
   auto const reg_msg = generate_registration_message(deviceName);
-  LOG_INFO("send hello");
+  log(LOG_INFO, "send hello");
   fuji_send(sockfd, &reg_msg, sizeof(reg_msg));
 
   uint8_t buffer[1024];
@@ -417,7 +442,7 @@ bool init_control_connection(native_socket const sockfd, char const* deviceName,
 void terminate_control_connection(native_socket sockfd) {
   if (sockfd <= 0) return;
 
-  LOG_INFO("terminate_control_connection");
+  log(LOG_INFO, "terminate_control_connection");
   fuji_message(sockfd, make_static_message(message_type::stop));
   uint32_t terminate = 0xffffffff;
   fuji_send(sockfd, &terminate, sizeof(terminate));
@@ -426,7 +451,7 @@ void terminate_control_connection(native_socket sockfd) {
 bool shutter(native_socket const sockfd, native_socket const sockfd2, const char* thumbnail) {
   if (sockfd <= 0) return false;
 
-  LOG_INFO("shutter");
+  log(LOG_INFO, "shutter");
   bool result = fuji_message(
       sockfd, make_static_message(message_type::shutter, 0x00, 0x00, 0x00, 0x00,
                                   0x00, 0x00, 0x00, 0x00));
@@ -438,11 +463,10 @@ bool shutter(native_socket const sockfd, native_socket const sockfd2, const char
 
   if (sockfd2) {
     receivedBytes = fuji_receive(sockfd2, buffer);
-    LOG_INFO_FORMAT("received %d bytes (async1)", receivedBytes);
-    print_hex(buffer, receivedBytes);
+    log(LOG_DEBUG, string_format("received %d bytes (async1) ", receivedBytes).append(hex_format(buffer, receivedBytes)));
+
     receivedBytes = fuji_receive(sockfd2, buffer);
-    LOG_INFO_FORMAT("received %d bytes (async2)", receivedBytes);
-    print_hex(buffer, receivedBytes);
+    log(LOG_DEBUG, string_format("received %d bytes (async2) ", receivedBytes).append(hex_format(buffer, receivedBytes)));
   }
 
   uint32_t lastMsgId = 0;
@@ -451,7 +475,7 @@ bool shutter(native_socket const sockfd, native_socket const sockfd2, const char
   fuji_send(sockfd, reqImg);
 
   receivedBytes = fuji_receive(sockfd, buffer);
-  LOG_INFO_FORMAT("received %d bytes (thumbnail)", receivedBytes);
+  log(LOG_INFO, string_format("received %d bytes (thumbnail)", receivedBytes));
   if (thumbnail && sockfd2 && receivedBytes > 8) {
     if (FILE* out = fopen(thumbnail, "wb")) {
       fwrite(buffer + 8, receivedBytes - 8, 1, out);
@@ -460,15 +484,13 @@ bool shutter(native_socket const sockfd, native_socket const sockfd2, const char
   }
 
   receivedBytes = fuji_receive(sockfd, buffer);
-  LOG_INFO_FORMAT("received %d bytes (response)", receivedBytes);
-  print_hex(buffer, receivedBytes);
+  log(LOG_DEBUG, string_format("received %d bytes (response) ", receivedBytes).append(hex_format(buffer, receivedBytes)));
 
   const bool success = is_success_response(lastMsgId, buffer, receivedBytes);
 
   if (sockfd2) {
     receivedBytes = fuji_receive(sockfd2, buffer);
-    LOG_INFO_FORMAT("received %d bytes (async3)", receivedBytes);
-    print_hex(buffer, receivedBytes);
+    log(LOG_DEBUG, string_format("received %d bytes (async3) ", receivedBytes).append(hex_format(buffer, receivedBytes)));
   }
 
   return success;
@@ -563,11 +585,10 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
   settings = camera_settings();
 
   auto const msg = generate<status_request_message>();
-  // printf("Status request %d\n", msg.id);
   fuji_send(sockfd, &msg, sizeof(msg));
   uint8_t buf[1024];
   size_t receivedBytes = fuji_receive(sockfd, buf);
-  printf("Status: %zd bytes\n", receivedBytes);
+  log(LOG_INFO, string_format("Status: %zd bytes", receivedBytes));
   //print_hex(buf, receivedBytes);
   //print_uint32(buf, receivedBytes);
   //print_ascii(buf, receivedBytes);
@@ -593,10 +614,10 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
     switch(code)
     {
     case 0xD209:
-      printf("Known but unused setting code=%x, value=%x\n", (unsigned)code, (unsigned)value);
+      log(LOG_WARN, string_format("Known but unused setting code=%x, value=%x", (unsigned)code, (unsigned)value));
       break;   
     default:
-      printf("Unknown setting code=%x, value=%x\n", (unsigned)code, (unsigned)value);
+      log(LOG_ERROR, string_format("Unknown setting code=%x, value=%x", (unsigned)code, (unsigned)value));
       break;
     case 0xD240:
     {

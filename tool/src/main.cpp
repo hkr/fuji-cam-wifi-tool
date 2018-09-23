@@ -28,7 +28,7 @@ namespace fcwt {
 
 #ifdef WITH_OPENCV
 void image_stream_cv_main(std::atomic<bool>& flag) {
-  LOG_INFO("image_stream_cv_main");
+  log(LOG_INFO, "image_stream_cv_main");
   sock const sockfd3 = connect_to_camera(jpg_stream_server_port);
 
   std::vector<uint8_t> buffer(1024 * 1024);
@@ -57,7 +57,7 @@ void image_stream_cv_main(std::atomic<bool>& flag) {
 #endif
 
 void image_stream_main(std::atomic<bool>& flag) {
-  LOG_INFO("image_stream_main");
+  log(LOG_INFO, "image_stream_main");
   sock const sockfd3 = connect_to_camera(jpg_stream_server_port);
 
   std::vector<uint8_t> buffer(1024 * 1024);
@@ -68,7 +68,7 @@ void image_stream_main(std::atomic<bool>& flag) {
   while (flag) {
     size_t receivedBytes =
         fuji_receive(sockfd3, buffer.data(), buffer.size());
-    LOG_INFO_FORMAT("image_stream_main received %zd bytes", receivedBytes);
+    log(LOG_DEBUG, string_format("image_stream_main received %zd bytes", receivedBytes));
 
     char filename[1024];
     snprintf(filename, sizeof(filename), "out/img_%d.jpg", image++);
@@ -78,7 +78,7 @@ void image_stream_main(std::atomic<bool>& flag) {
       fwrite(&buffer[header], receivedBytes, 1, file);
       fclose(file);
     } else {
-      LOG_WARN_FORMAT("image_stream_main Failed to create file %s", filename);
+      log(LOG_WARN, string_format("image_stream_main Failed to create file %s", filename));
     }
   }
 }
@@ -177,20 +177,22 @@ int main() {
         if (sockfd <= 0) {
           sockfd = connect_to_camera(control_server_port);
           if (!init_control_connection(sockfd, "HackedClient", &caps))
-            printf("failure\n");
+            log(LOG_ERROR, "failure\n");
           else {
+            log(LOG_INFO, "Received camera capabilities");
             print(caps);
             camera_settings settings;
             if (current_settings(sockfd, settings))
+              log(LOG_INFO, "Received camera settings");
               print(settings);
             sockfd2 = connect_to_camera(async_response_server_port);
           }
         } else {
-          printf("already connected\n");
+          log(LOG_INFO, "already connected\n");
         }
       } break;
       case command::shutter: {
-        if (!shutter(sockfd, sockfd2)) printf("failure\n");
+        if (!shutter(sockfd, sockfd2)) log(LOG_ERROR, "failure\n");
 
       } break;
 
@@ -215,13 +217,13 @@ int main() {
       case command::set_iso: {
         if (splitLine.size() > 1) {
           unsigned long iso = std::stoul(splitLine[1], 0, 0);
-          printf("%s(%lu)\n", splitLine[0].c_str(), iso);
+          log(LOG_DEBUG, string_format("%s(%lu)", splitLine[0].c_str(), iso));
           if (update_setting(sockfd, iso_level(iso))) {
             camera_settings settings;
             if (current_settings(sockfd, settings))
               print(settings);
           } else {
-            printf("Failed to set ISO %lu\n", iso);
+            log(LOG_ERROR, string_format("Failed to set ISO %lu", iso));
           }
         }
       } break;
@@ -251,14 +253,14 @@ int main() {
       case command::aperture: {
         if (splitLine.size() > 1) {
           int aperture_stops = std::stoi(splitLine[1], 0, 0);
-          printf("%s(%i)\n", splitLine[0].c_str(), aperture_stops);
+          log(LOG_DEBUG, string_format("%s(%i)", splitLine[0].c_str(), aperture_stops));
           if (aperture_stops != 0) {
             if (update_setting(sockfd, aperture_stops < 0 ? aperture_open_third_stop : aperture_close_third_stop)) {
               camera_settings settings;
               if (current_settings(sockfd, settings))
                 print(settings);
             } else {
-              printf("Failed to adjust aperture %i\n", aperture_stops);
+              log(LOG_ERROR, string_format("Failed to adjust aperture %i", aperture_stops));
             }
           }
         }
@@ -267,14 +269,14 @@ int main() {
       case command::shutter_speed: {
         if (splitLine.size() > 1) {
           int shutter_stops = std::stoi(splitLine[1], 0, 0);
-          printf("%s(%i)\n", splitLine[0].c_str(), shutter_stops);
+          log(LOG_DEBUG, string_format("%s(%i)", splitLine[0].c_str(), shutter_stops));
           if (shutter_stops != 0) {
             if (update_setting(sockfd, shutter_stops < 0 ? shutter_speed_one_stop_slower : shutter_speed_one_stop_faster)) {
               camera_settings settings;
               if (current_settings(sockfd, settings))
                 print(settings);
             } else {
-              printf("Failed to adjust shutter speed %i\n", shutter_stops);
+              log(LOG_ERROR, string_format("Failed to adjust shutter speed %i", shutter_stops));
             }
           }
         }
@@ -308,14 +310,14 @@ int main() {
       case command::white_balance: {
         if (splitLine.size() > 1) {
           int const wbvalue = std::stoi(splitLine[1], 0, 0);
-          printf("%s(%d)\n", splitLine[0].c_str(), wbvalue);
+          log(LOG_DEBUG, string_format("%s(%d)", splitLine[0].c_str(), wbvalue));
           white_balance_mode wb;
           if (parse_white_balance_mode(wbvalue, wb) && update_setting(sockfd, wb)) {
             camera_settings settings;
             if (current_settings(sockfd, settings))
               print(settings);
           } else {
-            printf("Failed to set white_balance %d\n", wbvalue);
+            log(LOG_ERROR, string_format("Failed to set white_balance %d", wbvalue));
           }
         }
       } break;
@@ -325,10 +327,10 @@ int main() {
         if (current_settings(sockfd, settings))
           print(settings);
         else
-          printf("fail\n");
+          log(LOG_ERROR, "fail");
       } break;
 
-      default: { printf("Unreconized command: %s\n", line.c_str()); }
+      default: { log(LOG_ERROR, string_format("Unreconized command: %s", line.c_str())); }
     }
   }
 
