@@ -83,7 +83,7 @@ void image_stream_main(std::atomic<bool>& flag) {
   }
 }
 
-char const* comamndStrings[] = {"connect", "shutter", "stream",
+char const* commandStrings[] = {"connect", "shutter", "stream",
                                 "info", "set_iso", "set_aperture", "aperture",
                                 "shutter_speed", "set_shutter_speed",
                                 "white_balance", "current_settings",
@@ -113,7 +113,7 @@ enum class command {
 
 static void completion(char const* buf, linenoiseCompletions* lc) {
   for (int i = 0; i < static_cast<int>(command::count); ++i) {
-    char const* const cmd = comamndStrings[i];
+    char const* const cmd = commandStrings[i];
     if (strstr(cmd, buf) == cmd) linenoiseAddCompletion(lc, cmd);
   }
 }
@@ -129,7 +129,7 @@ bool getline(std::string& line) {
 
 command parse_command(std::string const& line) {
   for (int i = 0; i < static_cast<int>(command::count); ++i) {
-    if (line == comamndStrings[i]) return static_cast<command>(i);
+    if (line == commandStrings[i]) return static_cast<command>(i);
   }
 
   return command::unknown;
