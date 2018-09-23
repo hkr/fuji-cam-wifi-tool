@@ -27,7 +27,7 @@ struct log_settings {
     uint8_t output = LOG_STDOUT;
 };
 
-void log(uint8_t level, char const* msg);
+void log(uint8_t level, std::string msg);
 
 enum append_newline { skip_newline, newline };
 

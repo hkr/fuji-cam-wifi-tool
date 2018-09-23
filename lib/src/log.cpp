@@ -10,23 +10,23 @@ namespace fcwt {
 
 log_settings log_s;
 
-void log(uint8_t level, char const* msg) {
+void log(uint8_t level, std::string msg) {
   if (level <= log_s.level)
     switch(level) {
       case LOG_ERROR: {
-        printf("[ERROR] %s\n", msg);
+        printf("[ERROR] %s\n", msg.c_str());
         break;
       }
       case LOG_WARN: {
-        printf("[WARN] %s\n", msg);
+        printf("[WARN] %s\n", msg.c_str());
         break;
       }
       case LOG_INFO: {
-        printf("[INFO] %s\n", msg);
+        printf("[INFO] %s\n", msg.c_str());
         break;
       }
       case LOG_DEBUG: {
-        printf("[DEBUG] %s\n", msg);
+        printf("[DEBUG] %s\n", msg.c_str());
         break;
       }
     }
