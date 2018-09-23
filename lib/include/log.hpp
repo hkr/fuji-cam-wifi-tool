@@ -14,6 +14,21 @@
 
 namespace fcwt {
 
+const uint8_t LOG_ERROR = 1;
+const uint8_t LOG_WARN = 2;
+const uint8_t LOG_INFO = 3;
+const uint8_t LOG_DEBUG = 4;
+
+const uint8_t LOG_STDOUT = 1;
+const uint8_t LOG_FILE = 2;
+
+struct log_settings {
+    uint8_t level = LOG_DEBUG;
+    uint8_t output = LOG_STDOUT;
+};
+
+void log(uint8_t level, char const* msg);
+
 enum append_newline { skip_newline, newline };
 
 void print_hex(void const* data, size_t const sizeBytes,

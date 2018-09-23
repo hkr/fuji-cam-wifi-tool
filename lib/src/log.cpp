@@ -8,6 +8,30 @@
 
 namespace fcwt {
 
+log_settings log_s;
+
+void log(uint8_t level, char const* msg) {
+  if (level <= log_s.level)
+    switch(level) {
+      case LOG_ERROR: {
+        printf("[ERROR] %s\n", msg);
+        break;
+      }
+      case LOG_WARN: {
+        printf("[WARN] %s\n", msg);
+        break;
+      }
+      case LOG_INFO: {
+        printf("[INFO] %s\n", msg);
+        break;
+      }
+      case LOG_DEBUG: {
+        printf("[DEBUG] %s\n", msg);
+        break;
+      }
+    }
+}
+
 void print_hex(void const* data, size_t const sizeBytes, append_newline anl) {
   size_t i = 0;
   while (i < sizeBytes) {
