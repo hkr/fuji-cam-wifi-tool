@@ -29,6 +29,10 @@ void log(uint8_t level, std::string msg) {
         printf("[DEBUG] %s\n", msg.c_str());
         break;
       }
+      case LOG_DEBUG2: {
+        printf("[DEBUG2] %s\n", msg.c_str());
+        break;
+      }
     }
 }
 

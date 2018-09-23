@@ -12,6 +12,7 @@ const uint8_t LOG_ERROR = 1;
 const uint8_t LOG_WARN = 2;
 const uint8_t LOG_INFO = 3;
 const uint8_t LOG_DEBUG = 4;
+const uint8_t LOG_DEBUG2 = 5;
 
 const uint8_t LOG_STDOUT = 1;
 const uint8_t LOG_FILE = 2;
