@@ -31,8 +31,8 @@ void log(uint8_t level, char const* msg);
 
 enum append_newline { skip_newline, newline };
 
-void print_hex(void const* data, size_t const sizeBytes,
-               append_newline anl = newline);
+std::string hex_format(void const* data, size_t const sizeBytes);
+
 void print_ascii(void const* data, size_t const sizeBytes,
                  append_newline anl = newline);
 void print_uint32(void const* data, size_t const sizeBytes,
