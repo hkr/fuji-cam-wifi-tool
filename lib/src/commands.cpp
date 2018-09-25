@@ -404,8 +404,6 @@ bool init_control_connection(native_socket const sockfd, char const* deviceName,
 
   fuji_send(sockfd, make_static_message(message_type::camera_capabilities));
   auto size = fuji_receive_log(sockfd, buffer);
-  print_uint32(buffer, size);
-  print_ascii(buffer, size);
 
   if (caps) *caps = parse_camera_caps(buffer, size);
 
