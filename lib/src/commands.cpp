@@ -496,15 +496,6 @@ bool shutter(native_socket const sockfd, native_socket const sockfd2, const char
   return success;
 }
 
-static bool parse_film_simulation_mode(uint32_t value,
-                                       film_simulation_mode& mode) {
-  if (value == 0)
-    return false;
- 
-  mode = static_cast<film_simulation_mode>(value);
-  return true;
-}
-
 static bool parse_image_settings(uint32_t const format,
                                  uint32_t const size_aspect,
                                  uint32_t const image_space_on_sdcard,
@@ -588,10 +579,8 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
   fuji_send(sockfd, &msg, sizeof(msg));
   uint8_t buf[1024];
   size_t receivedBytes = fuji_receive(sockfd, buf);
-  log(LOG_INFO, string_format("Status: %zd bytes", receivedBytes));
-  //print_hex(buf, receivedBytes);
-  //print_uint32(buf, receivedBytes);
-  //print_ascii(buf, receivedBytes);
+
+  log(LOG_DEBUG2, string_format("Status: %zd bytes ", receivedBytes).append(hex_format(buf, receivedBytes)));
 
   uint8_t* ptr = buf;
   ptr += 8; // skip header
@@ -611,92 +600,119 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
     memcpy(&code, data, 2);
     memcpy(&value, data + 2, 4);
 
-    switch(code)
-    {
-    case 0xD209:
-      log(LOG_WARN, string_format("Known but unused setting code=%x, value=%x", (unsigned)code, (unsigned)value));
-      break;   
-    default:
-      log(LOG_ERROR, string_format("Unknown setting code=%x, value=%x", (unsigned)code, (unsigned)value));
-      break;
-    case 0xD240:
-    {
-      const uint32_t shutter_speed_value_mask = ~0x80000000;
-      settings.shutter_speed = value & shutter_speed_value_mask;
-      settings.one_div_shutter_speed = settings.shutter_speed != value;
-    }
-    break;
-    case 0x5007:
-    {
-      settings.aperture.value = value;
-    }
-    break;
-    case 0x5005:
-    {
-      parse_white_balance_mode(value, settings.white_balance);
-    }
-    break;
-    case 0xD001:
-    {
-      parse_film_simulation_mode(value, settings.film_simulation);
-    }
-    break;
-    case 0xD02A:
-    {
-      settings.iso = value;
-    }
-    break;
-    case 0xD018:
-    {
-      image_format = value;
-    }
-    break;
-    case 0xD241:
-    {
-      image_size_aspect = value;
-    }
-    break;
-    case 0xD229:
-    {
-      image_space_on_sdcard = value;
-    }
-    break;
-    case 0xD17C:
-    {
-      parse_auto_focus(value, settings.focus_point);
-    }
-    break;
-    case 0x500c:
-    {
-      // flash mode: pop-up 8001, 
-    }
-    break;
-    case 0x5012:
-    {
-      // self-timer, value is probably seconds, 0 = disabled
-    }
-    break;
-    case 0x500a:
-    {
-      // focus mode? S/C=8001 M=1
-    }
-    break;
-    case 0x5010:
-    {
-      settings.exposure = static_cast<int16_t>(static_cast<uint16_t>(value));
-    }
-    break;
-    case 0xD028:
-    {
-      // probably shutter type, 0 = MS+ES, 1 = ES
-      settings.shutter = value ? electronic_shutter : mechanical_shutter;
-    }
-    break;
-    case 0xd242:
-    {
-      // battery level, 4 full, 0 empty?
-      settings.battery_level = value;
-    }
+    std::string log_setting = std::string("Setting msg: ").append(hex_format(&code, 2))
+                                                          .append(hex_format(&value, 4));
+
+    switch(code) {
+      case 0x5005: {
+        log(LOG_DEBUG2, log_setting.append("(WHITE_BALANCE)"));
+        settings.white_balance = static_cast<white_balance_mode>(value);
+      } break;
+
+      case 0x5007: {
+        log(LOG_DEBUG2, log_setting.append("(APERTURE)"));
+        settings.aperture.value = value;
+      } break;
+
+      case 0x500a: {
+        // focus mode, S-AF: 0x8001, C-AF: 0x8002, MF: 1
+        log(LOG_DEBUG2, log_setting.append("(AUTOFOCUS)"));
+        settings.focus = static_cast<focus_mode>(value);
+      } break;
+
+      case 0x500c: {
+        log(LOG_DEBUG2, log_setting.append("(FLASH)"));
+        settings.flash = static_cast<flash_mode>(value);
+      } break;
+
+      case 0x500e: {
+        log(LOG_DEBUG2, log_setting.append("(SHOOTING_MODE)"));
+        settings.shooting = static_cast<shooting_mode>(value);
+      } break;
+
+      case 0x5010: {
+        log(LOG_DEBUG2, log_setting.append("(EXPOSURE_CORRECTION)"));
+        settings.exposure_compensation = static_cast<int16_t>(static_cast<uint16_t>(value));
+      } break;
+
+      case 0x5012: {
+        // self-timer, 0 = disabled, 2 = 2s, 4 = 10s
+        log(LOG_DEBUG2, log_setting.append("(TIMER)"));
+        settings.self_timer = static_cast<timer_mode>(value);
+      } break;
+
+      case 0xD001: {
+        log(LOG_DEBUG2, log_setting.append("(FILM_SIMULATION)"));
+        settings.film_simulation = static_cast<film_simulation_mode>(value);
+      } break;
+
+      case 0xD018: {
+        log(LOG_DEBUG2, log_setting.append("(IMAGE_FORMAT)"));
+        image_format = value;
+      } break;
+
+      case 0xD028: {
+        // shutter type when shutter is in auto mode, 0 = MS+ES, 1 = ES
+        log(LOG_DEBUG2, log_setting.append("(SHUTTER_TYPE)"));
+        settings.shutter = value ? electronic_shutter : mechanical_shutter;
+      } break;
+
+      case 0xD02A: {
+        log(LOG_DEBUG2, log_setting.append("(ISO)"));
+        settings.iso = value;
+      } break;
+
+      case 0xd02b: {
+        log(LOG_DEBUG2, log_setting.append("(MOVIE_ISO)"));
+        settings.movie_iso = value;
+      } break;
+
+      case 0xD17C: {
+        log(LOG_DEBUG2, log_setting.append("(FOCUS_POINT)"));
+        parse_auto_focus(value, settings.focus_point);
+      } break;
+
+      case 0xD209: {
+        // focus color (S1_LOCK_COLOR)
+        log(LOG_WARN, log_setting.insert(0, "Known but unused setting"));
+      } break;
+
+      case 0xd21b: {
+        log(LOG_DEBUG2, log_setting.append("(DEVICE_ERROR)"));
+        settings.device_error = value;
+      } break;
+
+      case 0xD229: {
+        log(LOG_DEBUG2, log_setting.append("(IMAGE_SPACE_SD)"));
+        image_space_on_sdcard = value;
+      } break;
+
+      case 0xd22a: {
+        log(LOG_DEBUG2, log_setting.append("(MOVIE_HD_REMAINING_TIME)"));
+        settings.movie_hd_remaining_time = value;
+      } break;
+
+      case 0xD240: {
+        log(LOG_DEBUG2, log_setting.append("(SHUTTER_SPEED)"));
+        const uint32_t shutter_speed_value_mask = ~0x80000000;
+        settings.shutter_speed = value & shutter_speed_value_mask;
+        settings.one_div_shutter_speed = settings.shutter_speed != value;
+      } break;
+
+      case 0xD241: {
+        log(LOG_DEBUG2, log_setting.append("(IMAGE_ASPECT)"));
+        image_size_aspect = value;
+      } break;
+
+      case 0xd242: {
+        // battery level, 4: full (3 bars), 3: mid (2 bars), 2: min (1 bar), 1: critical
+        log(LOG_DEBUG2, log_setting.append("(BATTERY_LEVEL)"));
+        settings.battery = static_cast<battery_level>(value);
+      } break;
+
+      default:
+        log(LOG_WARN, log_setting.insert(0, "Unknown setting"));
+        break;
     }
   }
 
@@ -704,6 +720,7 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
           image_space_on_sdcard, settings.image);
 
   receivedBytes = fuji_receive(sockfd, buf);
+  log(LOG_DEBUG2, std::string("received bytes@@@").append(hex_format(buf, receivedBytes)));
 
   return true;
 }
