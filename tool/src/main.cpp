@@ -47,7 +47,7 @@ void image_stream_cv_main(std::atomic<bool>& flag) {
 
     if ( decodedImage.data == NULL )
     {
-        LOG_WARN("couldn't decode image");
+        log(LOG_WARN, "couldn't decode image");
     }
     imshow( "Display window", decodedImage );
 

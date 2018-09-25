@@ -99,9 +99,7 @@ enum film_simulation_mode {
   film_simulation_acros_y = 13,
   film_simulation_acros_r = 14,
   film_simulation_acros_g = 15,
-  film_simulation_eterna = 16,
-
-  film_simulation_count
+  film_simulation_eterna = 16
 };
 
 char const* to_string(film_simulation_mode film_simulation);
@@ -154,7 +152,7 @@ char const* to_string(battery_level level);
 enum flash_mode {
   flash_auto = 1,
   flash_off = 2,
-  flash_fill_flash = 3,
+  flash_fill = 3,
   flash_redeye_auto = 4,
   flash_redeye_fill = 5,
   flash_external_sync = 6,
@@ -169,7 +167,6 @@ enum flash_mode {
   flash_disable = 32777,
   flash_enable = 32778 
 };
-
 char const* to_string(flash_mode flash);
 
 struct camera_settings {

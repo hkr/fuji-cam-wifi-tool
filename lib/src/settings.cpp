@@ -175,6 +175,7 @@ char const* to_string(flash_mode const flash) {
   switch (flash) {
     CASE_RETURN_ENUM_TO_STRING(flash_auto);
     CASE_RETURN_ENUM_TO_STRING(flash_off);
+    CASE_RETURN_ENUM_TO_STRING(flash_fill);
     CASE_RETURN_ENUM_TO_STRING(flash_redeye_auto);
     CASE_RETURN_ENUM_TO_STRING(flash_redeye_fill);
     CASE_RETURN_ENUM_TO_STRING(flash_external_sync);
@@ -249,7 +250,7 @@ void print(camera_settings const& settings) {
   printf("\tflash: %s\n", to_string(settings.flash));
   printf("\tself_timer: %s\n", to_string(settings.self_timer));
   printf("\tfocus_mode: %s\n", to_string(settings.focus));
-  printf("\tmovie_hd_remaining_time: %ss\n", to_string(settings.movie_hd_remaining_time).c_str());
+  printf("\tmovie_hd_remaining_time: %ds\n", settings.movie_hd_remaining_time);
   printf("\tshooting_mode: %s\n", to_string(settings.shooting));
   printf("\tdevice_error: %d\n", settings.device_error);
 }
