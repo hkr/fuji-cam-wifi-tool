@@ -129,164 +129,148 @@ uint8_t message10[] =
 //    79:da:09:00 // last int is image id?
 // -> 10:00:00:00: 03:00:01:20: 91:00:00:00: 79:da:09:00 // image complete
 
-void parse_camera_caps_submessage(camera_capabilities& caps,
-                                  uint8_t const* data, size_t const size) {
+/*
+* Capability messages are of the format:
+* --
+* 2 bytes          type
+* 2 bytes          format (3, 4 or 6)
+* --
+* 1 byte           separator (0x01)
+* --
+* N bytes          minimum value that can be chosen
+* N bytes          current value
+* --
+* 1 byte           separator (0x02)
+* --
+* 2 bytes          count of possible values
+* count * N bytes  list of all supported values
+* --
+*
+* N can be equal to either 2 or 4 depending on the format bytes
+*   format = 3 or 4 => N = 2
+*   format = 6      => N = 4
+*/
+
+void parse_capability(capability& cap, uint8_t const* data,
+                      size_t const value_size) {
+
+    uint16_t count = capability_max_modes;
+    uint32_t tmp;
+    uint8_t offset = 4; // skip capability header
+
+    // skip separator
+    offset += 1;
+    memcpy(&cap.min_value, data + offset, value_size);
+
+    // skip minimum value field
+    offset += value_size;
+    memcpy(&cap.value, data + offset, value_size);
+
+    // skip current value field and separator
+    offset += value_size + 1;
+    memcpy(&cap.count, data + offset, value_size);
+    count = std::min(cap.count, count);
+
+    // skip count
+    offset += 2;
+    for (uint16_t i = 0; i < count; i++) {
+        tmp = 0;
+        memcpy(&tmp, data + offset + value_size*i, value_size);
+        cap.modes[i] = tmp;
+    }
+}
+
+void read_capability_submsg(camera_capabilities& caps,
+                            uint8_t const* data, size_t const size) {
   if (size < 4) return;
 
-  struct submessage_type {
-    uint16_t x, y;
+  struct capability_header {
+    uint16_t type, format;
   };
-  submessage_type type = {};
-  memcpy(&type, data, sizeof(type));
+  capability_header header = {};
+  memcpy(&header, data, sizeof(header));
 
-  switch (type.y) {
+  std::string log_capability = std::string("capability: ").append(hex_format(data, size));
+
+  switch (header.format) {
     default: {
-      std::string pre = string_format("Submessage of unknown type (%04X/%04X) ",
-                            static_cast<int>(type.x), static_cast<int>(type.y));
-      log(LOG_ERROR, hex_format(data, size).insert(0, pre));
+      log(LOG_WARN, log_capability.append("Unknown"));
     } break;
-    case 3: {
-      switch (type.x) {
-        default: {
-          std::string pre = string_format("Submessage of unknown type (%04X/%04X) ",
-                                static_cast<int>(type.x), static_cast<int>(type.y));
-          log(LOG_ERROR, hex_format(data, size).insert(0, pre));
-        } break;
-        case 0x5010:  // Shutter speed auto
-        {
-          log(LOG_DEBUG, "EXPOSURE_CORRECTION");
-          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
-          // +1/3   4D 01
-          // +1     EB 03
-          // -1     18 FC
-          // -1 1/3 CB FA
-          // -3     48 F4
-          struct shutter_speed_auto {
-            uint8_t unknown0[3];
-            // !!
-            // TODO: this probably works similar to exposure in current_settings()!!
-            // !!
-            uint8_t exposure_compensation_dial_unknown;  // this changes when
-                                                         // turning the dial,
-                                                         // don't know what it
-                                                         // means
-            int8_t exposure_compensation_dial_value;     // doesn't match the
-                                                      // number on the dial, but
-                                                      // whatever
-            // more data here
-          };
-          shutter_speed_auto ssa;
-          memcpy(&ssa, data + 4, sizeof(shutter_speed_auto));
-          // printf("Exposure compensation: %d %01X\n",
-          // static_cast<int>(ssa->exposure_compensation_dial_value),
-          // ssa->exposure_compensation_dial_unknown);
-          caps.shutter_speed.exposure =
-              ssa.exposure_compensation_dial_value;  // TODO: map to -3/+3
-                                                     // range?
-        }
 
-        break;
+    case 3: {
+      switch (header.type) {
+        case 0x5010: {
+          log(LOG_DEBUG2, log_capability.append("(EXPOSURE_CORRECTION)"));
+          parse_capability(caps.exposure_compensation, data, 2);
+        } break;
+
+        default: {
+          log(LOG_WARN, log_capability.append("Unknown"));
+        } break;
       }
     } break;
 
     case 4: {
-      switch (type.x) {
+      switch (header.type) {
         case 0x5007: {
-          log(LOG_DEBUG, "EXPOSURE");
-          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
+          log(LOG_DEBUG, log_capability.append("(APERTURE)"));
+          parse_capability(caps.aperture, data, 2);
+        } break;
 
-          uint16_t aperture;
-          memcpy(&aperture, data + 7, 2);
-          caps.aperture.value = aperture;
-        } break;
-        default: {
-          std::string pre = string_format("Submessage of unknown type (%04X/%04X) ",
-                                static_cast<int>(type.x), static_cast<int>(type.y));
-          log(LOG_ERROR, hex_format(data, size).insert(0, pre));
-        } break;
         case 0x5012: {
-          log(LOG_DEBUG, "TIMER");
-          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
+          log(LOG_DEBUG2, log_capability.append("(TIMER)"));
+          parse_capability(caps.self_timer, data, 2);
         } break;
 
         case 0x500C: {
-          log(LOG_DEBUG, "FLASH");
-          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
+          log(LOG_DEBUG2, log_capability.append("(FLASH)"));
+          parse_capability(caps.flash, data, 2);
         } break;
 
         case 0x5005: {
-          log(LOG_DEBUG, "WHITE_BALANCE");
-          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
+          log(LOG_DEBUG2, log_capability.append("(WHITE_BALANCE)"));
+          parse_capability(caps.white_balance, data, 2);
         } break;
 
         case 0xD001: {
-          log(LOG_DEBUG, "FILM_SIMULATION");
-          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
+          log(LOG_DEBUG2, log_capability.append("(FILM_SIMULATION)"));
+          parse_capability(caps.film_simulation, data, 2);
         } break;
 
         case 0xD019: {
-          log(LOG_DEBUG, "RECMODE_ENABLE");
-          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
+          log(LOG_DEBUG2, log_capability.append("(RECMODE_ENABLE)"));
+          parse_capability(caps.recording, data, 2);
+        } break;
+
+        default: {
+          log(LOG_WARN, log_capability.append("Unknown"));
         } break;
       }
     } break;
 
     case 6: {
-      switch (type.x) {
+      switch (header.type) {
         case 0xD02A: {
-          log(LOG_DEBUG, "ISO");
-          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
-          const size_t offset =
-              16;  // first is type, next 3 are not ISO levels, unknown
+          log(LOG_DEBUG, log_capability.append("(ISO)"));
+          const size_t offset = 14;
           if (size >= offset) {
-            caps.iso.numLevels =
-                static_cast<uint32_t>(std::min(size - offset, sizeof(caps.iso.levels)) /
-                sizeof(*caps.iso.levels));
-            memcpy(caps.iso.levels, data + offset,
-                   caps.iso.numLevels * sizeof(*caps.iso.levels));
+            memcpy(&caps.iso.count, data + offset, 2);
+            memcpy(caps.iso.modes, data + offset + 2,
+                   std::min(caps.iso.count, iso_max_modes) * 4);
           }
         } break;
 
         case 0xD240: {
-          log(LOG_DEBUG, "SHUTTER_SPEED");
-          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
-// don't know what caps.shutter_speed[1] means
-#if 0
-          B: Shutter speed: 1/30s 255 00020200
-          T: Shutter speed: 1/4000s 255 00020280
-          1: Shutter speed: 1/1s 255 00020200
-          2: Shutter speed: 1/2s 255 00020280
-          180x: Shutter speed: 1/180s 255 00020280
-          Shutter speed: 1/250s 255 00020280
-          A: Shutter speed: 1/0s 3 07070000
-#endif
-          struct shutter_speed_status {
-            uint32_t unknown0;
-            uint32_t shutter_speed[2];
-            uint32_t unknown1[2];
-          };
-          print_uint32(data + 4, size - 4);
-          assert(size == sizeof(shutter_speed_status) + 4);
-          shutter_speed_status shutterStatus;
-          memcpy(&shutterStatus, data + 4, sizeof(shutterStatus));
-
-          if (static_cast<uint8_t>(shutterStatus.shutter_speed[0]) == 3) {
-            caps.shutter_speed.mode = shutter_speed_auto;
-          } else {
-            caps.shutter_speed.mode = shutter_speed_manual;
-            caps.shutter_speed.value =
-                (shutterStatus.shutter_speed[0] >> 8) / 1000;
-          }
+          log(LOG_DEBUG, log_capability.append("(SHUTTER_SPEED)"));
+          parse_capability(caps.shutter, data, 4);
         } break;
+
         case 0xD17C: {
-          log(LOG_DEBUG, "S1_LOCK (or autofocus)");
-          log(LOG_DEBUG, hex_format(data, size).insert(0, "Submessage: "));
+          log(LOG_DEBUG, log_capability.append("(S1_LOCK)"));
         } break;
 
         default: {
-          std::string pre = string_format("Submessage of unknown type (%04X/%04X) ",
-                                static_cast<int>(type.x), static_cast<int>(type.y));
-          log(LOG_ERROR, hex_format(data, size).insert(0, pre));
+          log(LOG_WARN, log_capability.append("Unknown"));
         } break;
       }
     } break;
@@ -325,7 +309,7 @@ camera_capabilities parse_camera_caps(void const* data, size_t const size) {
       break;
     }
 
-    parse_camera_caps_submessage(caps, bytes, subMsgSize);
+    read_capability_submsg(caps, bytes, subMsgSize);
 
     bytes += subMsgSize;
     remainingBytes -= subMsgSize;
