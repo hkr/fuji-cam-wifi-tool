@@ -8,6 +8,12 @@
 
 namespace fcwt {
 
+const uint32_t iso_flag_auto = 1 << 31;
+const uint32_t iso_flag_emulated = 1 << 30;
+const uint32_t iso_value_mask = 0x00ffffff;
+const uint32_t shutter_flag_subsecond = 1 << 31;
+const uint32_t shutter_value_mask = 0x0fffffff;
+
 enum image_format {
   image_format_jpeg,
   image_format_raw_and_jpeg
@@ -39,15 +45,27 @@ struct image_settings {
   jpeg_aspect aspect;
   uint32_t space_on_sdcard;
 };
-
 std::string to_string(image_settings const& image);
 
 struct auto_focus_point {
   uint8_t x;
   uint8_t y;
 };
-
 std::string to_string(auto_focus_point const& focus_point);
+
+struct iso_level {
+  iso_level(uint32_t val) : value(val) {}
+  operator uint32_t() const { return value; }
+  uint32_t value;
+};
+std::string to_string(iso_level iso);
+
+struct shutter_speed {
+  shutter_speed(uint32_t val) : value(val) {}
+  operator uint32_t() const { return value; }
+  uint32_t value;
+};
+char const* to_string(shutter_speed speed);
 
 enum focus_mode {
   manual_focus = 1,

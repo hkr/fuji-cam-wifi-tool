@@ -251,17 +251,12 @@ void read_capability_submsg(camera_capabilities& caps,
     case 6: {
       switch (header.type) {
         case 0xD02A: {
-          log(LOG_DEBUG, log_capability.append("(ISO)"));
-          const size_t offset = 14;
-          if (size >= offset) {
-            memcpy(&caps.iso.count, data + offset, 2);
-            memcpy(caps.iso.modes, data + offset + 2,
-                   std::min(caps.iso.count, iso_max_modes) * 4);
-          }
+          log(LOG_DEBUG2, log_capability.append("(ISO)"));
+          parse_capability(caps.iso, data, 4);
         } break;
 
         case 0xD240: {
-          log(LOG_DEBUG, log_capability.append("(SHUTTER_SPEED)"));
+          log(LOG_DEBUG2, log_capability.append("(SHUTTER_SPEED)"));
           parse_capability(caps.shutter, data, 4);
         } break;
 
@@ -678,9 +673,7 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
 
       case 0xD240: {
         log(LOG_DEBUG2, log_setting.append("(SHUTTER_SPEED)"));
-        const uint32_t shutter_speed_value_mask = ~0x80000000;
-        settings.shutter_speed = value & shutter_speed_value_mask;
-        settings.one_div_shutter_speed = settings.shutter_speed != value;
+        settings.shutter_speed = value;
       } break;
 
       case 0xD241: {

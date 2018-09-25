@@ -6,23 +6,6 @@
 
 namespace fcwt {
 
-std::string to_string(iso_level iso)
-{
-    auto const lvl = iso.value;
-    char const* flag = "";
-
-    // movie iso auto is  0xffffffff
-    if (lvl == 0xffffffff)
-        return "auto";
-
-    if (lvl & iso_flag_auto) 
-        flag = " (auto)";
-    else if (lvl & iso_flag_emulated)
-        flag = " (emulated)";
-
-    return string_format("%12d%s", lvl & iso_value_mask, flag);
-}
-
 std::string to_string(aperture_f_number aperture)
 {
     if (aperture.value)
@@ -53,12 +36,8 @@ void print(camera_capabilities const& caps)
     }
 
     printf("\tshutter speed:\n");
-    bool sub_second = caps.shutter.value & shutter_flag_subsecond;
-    double value = static_cast<double>(caps.shutter.value & shutter_value_mask) / 1000.0;
-    if (sub_second)
-        printf("\t\t1/%.1fs\n", value);
-    else
-        printf("\t\t%.1fs\n", value);
+    shutter_speed const spd { caps.shutter.value };
+    printf("\t\tvalue: %s\n", to_string(spd));
 
     printf("\taperture modes:\n");
     for (uint16_t i = 0; i < caps.aperture.count; ++i) {

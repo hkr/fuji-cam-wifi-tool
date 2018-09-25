@@ -10,6 +10,32 @@ namespace fcwt {
 #define CASE_RETURN_ENUM_TO_STRING(x) case x: return #x;
 #define CASE_ASSIGN_AND_BREAK(r, x) case x: r = x; break
 
+std::string to_string(iso_level iso) {
+    auto const lvl = iso.value;
+    char const* flag = "";
+
+    // movie iso auto is  0xffffffff
+    if (lvl == 0xffffffff)
+        return "auto";
+
+    if (lvl & iso_flag_auto) 
+        flag = "(auto)";
+    else if (lvl & iso_flag_emulated)
+        flag = "(emulated)";
+
+    return string_format("%12d %s", lvl & iso_value_mask, flag);
+}
+
+char const* to_string(shutter_speed speed) {
+    auto const spd = speed.value;
+
+    double out = static_cast<double>(spd & shutter_value_mask) / 1000.0;
+    if (spd & shutter_flag_subsecond) 
+        return string_format("1/%.1fs", out).c_str();
+    else
+        return string_format("%.1fs", out).c_str();
+}
+
 char const* to_string(image_format const format) {
   switch (format) {
     CASE_RETURN_ENUM_TO_STRING(image_format_jpeg);
@@ -204,10 +230,13 @@ std::string to_string(image_settings const& image) {
 }
 
 void print(camera_settings const& settings) {
+  iso_level iso = { settings.iso };
+  iso_level movie_iso = { settings.movie_iso };
+  shutter_speed speed = { settings.shutter_speed };
+
   printf("camera settings:\n");
-  iso_level iso = {settings.iso};
   printf("\tiso: %s\n", to_string(iso).c_str());
-  printf("\tshutter_speed: %s%.1fs\n", settings.one_div_shutter_speed ? "1/" : "", static_cast<double>(settings.shutter_speed) / 1000.0);
+  printf("\tshutter_speed: %s\n", to_string(speed));
   printf("\taperture: %s\n", to_string(settings.aperture).c_str());
   printf("\twhite_balance: %s\n", to_string(settings.white_balance));
   printf("\tfilm_simulation_mode: %s\n", to_string(settings.film_simulation));
@@ -216,7 +245,6 @@ void print(camera_settings const& settings) {
   printf("\tbattery_level: %s\n", to_string(settings.battery));
   printf("\t%s\n", to_string(settings.focus_point).c_str());
   printf("\t%s\n", to_string(settings.image).c_str());
-  iso_level movie_iso = {settings.movie_iso};
   printf("\tmovie_iso: %s\n", to_string(movie_iso).c_str());
   printf("\tflash: %s\n", to_string(settings.flash));
   printf("\tself_timer: %s\n", to_string(settings.self_timer));
