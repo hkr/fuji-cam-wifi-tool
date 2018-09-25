@@ -192,8 +192,12 @@ std::string to_string(auto_focus_point const& focus_point) {
 
 std::string to_string(image_settings const& image) {
   return string_format(
-      "image_settings: image_format=%s, jpeg_quality=%s, jpeg_size=%s, "
-      "jpeg_aspect=%s, space_on_sdcard=%u",
+      "image_settings:\n"
+      "\t\timage_format = %s\n"
+      "\t\tjpeg_quality = %s\n"
+      "\t\tjpeg_size = %s\n"
+      "\t\tjpeg_aspect = %s\n"
+      "\t\tspace_on_sdcard = %u",
       to_string(image.format), to_string(image.quality), to_string(image.size),
       to_string(image.aspect),
       static_cast<unsigned int>(image.space_on_sdcard));
@@ -207,11 +211,19 @@ void print(camera_settings const& settings) {
   printf("\taperture: %s\n", to_string(settings.aperture).c_str());
   printf("\twhite_balance: %s\n", to_string(settings.white_balance));
   printf("\tfilm_simulation_mode: %s\n", to_string(settings.film_simulation));
-  printf("\texposure: %.1f\n", static_cast<double>(settings.exposure) / 1000.0);
+  printf("\texposure_compensation: %.1f\n", static_cast<double>(settings.exposure_compensation) / 1000.0);
   printf("\tshutter_type: %s\n", to_string(settings.shutter));
-  printf("\tbattery_level: %d\n", settings.battery_level);
+  printf("\tbattery_level: %s\n", to_string(settings.battery));
   printf("\t%s\n", to_string(settings.focus_point).c_str());
   printf("\t%s\n", to_string(settings.image).c_str());
+  iso_level movie_iso = {settings.movie_iso};
+  printf("\tmovie_iso: %s\n", to_string(movie_iso).c_str());
+  printf("\tflash: %s\n", to_string(settings.flash));
+  printf("\tself_timer: %s\n", to_string(settings.self_timer));
+  printf("\tfocus_mode: %s\n", to_string(settings.focus));
+  printf("\tmovie_hd_remaining_time: %ss\n", to_string(settings.movie_hd_remaining_time).c_str());
+  printf("\tshooting_mode: %s\n", to_string(settings.shooting));
+  printf("\tdevice_error: %d\n", settings.device_error);
 }
 
 }  // namespace fcwt
