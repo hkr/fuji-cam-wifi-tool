@@ -172,7 +172,6 @@ char const* to_string(flash_mode flash);
 struct camera_settings {
   uint32_t iso;
   uint32_t movie_iso;
-  bool one_div_shutter_speed;
   uint32_t shutter_speed;
   uint32_t device_error;
   uint32_t movie_hd_remaining_time;
@@ -192,8 +191,15 @@ struct camera_settings {
 };
 
 inline uint64_t shutter_speed_microseconds(camera_settings const& settings) {
-  double msec = settings.one_div_shutter_speed ? 1000000.0 / settings.shutter_speed : settings.shutter_speed;
-  return msec * 1000.0;
+  double msec = 0;
+  auto const spd = settings.shutter_speed;
+
+  if (spd & shutter_flag_subsecond) 
+    msec = 1000.0 * (1000000.0 / settings.shutter_speed);
+  else
+    msec = 1000.0 * settings.shutter_speed;
+
+  return msec;
 }
 
 void print(camera_settings const& settings);

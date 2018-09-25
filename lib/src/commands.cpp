@@ -670,6 +670,8 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
       } break;
 
       case 0xD240: {
+        // shutter speed; 4 bytes; MSB is a flag to indicate whether this
+        // is a subsecond value (i.e. 1/Ns)
         log(LOG_DEBUG2, log_setting.append("(SHUTTER_SPEED)"));
         settings.shutter_speed = value;
       } break;
