@@ -380,7 +380,6 @@ bool init_control_connection(native_socket const sockfd, char const* deviceName,
     return false;
   }
 
-  auto msg2 = make_static_message(message_type::start, 0x01, 0x00, 0x00, 0x00);
   fuji_message(
       sockfd, make_static_message(message_type::start, 0x01, 0x00, 0x00, 0x00));
 

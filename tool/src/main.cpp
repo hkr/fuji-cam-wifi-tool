@@ -37,7 +37,6 @@ void image_stream_cv_main(std::atomic<bool>& flag) {
 
   if (sockfd3 <= 0) return;
 
-  unsigned int image = 0;
   namedWindow( "Display window", WINDOW_AUTOSIZE );// Create a window for display.
   while (flag) {
     size_t receivedBytes =
@@ -199,9 +198,10 @@ int main(int const argc, char const* argv[]) {
             log(LOG_INFO, "Received camera capabilities");
             print(caps);
             camera_settings settings;
-            if (current_settings(sockfd, settings))
+            if (current_settings(sockfd, settings)) {
               log(LOG_INFO, "Received camera settings");
               print(settings);
+            }
             sockfd2 = connect_to_camera(async_response_server_port);
           }
         } else {
@@ -247,7 +247,7 @@ int main(int const argc, char const* argv[]) {
 
       case command::set_aperture: {
         if (splitLine.size() > 1) {
-          int const aperture = static_cast<int>(std::stod(splitLine[1]) * 100.0);
+          uint32_t const aperture = static_cast<uint32_t>(std::stod(splitLine[1]) * 100.0);
           camera_settings settings;
           if (aperture > 0 && aperture < 6400 && 
               current_settings(sockfd, settings) && settings.aperture.value > 0 &&
