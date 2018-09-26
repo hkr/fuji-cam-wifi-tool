@@ -651,7 +651,7 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
 
       case 0xD209: {
         // focus color (S1_LOCK_COLOR)
-        log(LOG_WARN, log_setting.insert(0, "Known but unused setting"));
+        log(LOG_WARN, log_setting.append("(Known but unused setting)"));
       } break;
 
       case 0xd21b: {
