@@ -327,7 +327,10 @@ bool update_setting(native_socket sockfd, image_settings image) {
 }
 
 bool update_setting(native_socket sockfd, film_simulation_mode film) {
-  return false;
+  auto const msg_1 =
+    make_static_message(message_type::two_part, 0x01, 0xd0, 0x00, 0x00);
+  auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(static_cast<uint16_t>(film)));
+  return fuji_twopart_message(sockfd, msg_1, msg_2);
 }
 
 bool update_setting(native_socket sockfd, auto_focus_point point) {

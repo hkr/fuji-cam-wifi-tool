@@ -89,6 +89,7 @@ char const* commandStrings[] = {"connect", "shutter", "stream",
                                 "info", "set_iso", "set_aperture", "aperture",
                                 "shutter_speed", "set_shutter_speed",
                                 "white_balance", "current_settings",
+                                "film_simulation",
 #ifdef WITH_OPENCV
                                 "stream_cv",
 #endif
@@ -106,6 +107,7 @@ enum class command {
   set_shutter_speed,
   white_balance,
   current_settings,
+  film_simulation,
 #ifdef WITH_OPENCV
   stream_cv,
 #endif
@@ -333,6 +335,22 @@ int main(int const argc, char const* argv[]) {
               print(settings);
           } else {
             log(LOG_ERROR, string_format("Failed to set white_balance %d", wbvalue));
+          }
+        }
+      } break;
+
+      case command::film_simulation: {
+        if (splitLine.size() > 1) {
+          int const value = std::stoi(splitLine[1], 0, 0);
+          film_simulation_mode fs = static_cast<film_simulation_mode>(value);
+          log(LOG_DEBUG, string_format("%s (%d)", splitLine[0].c_str(), value));
+
+          if (update_setting(sockfd, fs)) {
+            camera_settings settings;
+            if (current_settings(sockfd, settings))
+              print(settings);
+          } else {
+            log(LOG_ERROR, string_format("Failed to set film simulation %d", value));
           }
         }
       } break;
