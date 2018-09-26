@@ -631,7 +631,7 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
       case 0xD028: {
         // shutter type when shutter is in auto mode, 0 = MS+ES, 1 = ES
         log(LOG_DEBUG2, log_setting.append("(SHUTTER_TYPE)"));
-        settings.shutter = value ? electronic_shutter : mechanical_shutter;
+        settings.shutter.type = value ? electronic_shutter : mechanical_shutter;
       } break;
 
       case 0xD02A: {
@@ -673,7 +673,7 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
         // shutter speed; 4 bytes; MSB is a flag to indicate whether this
         // is a subsecond value (i.e. 1/Ns)
         log(LOG_DEBUG2, log_setting.append("(SHUTTER_SPEED)"));
-        settings.shutter_speed = value;
+        settings.shutter.speed = value;
       } break;
 
       case 0xD241: {

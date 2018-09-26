@@ -27,10 +27,9 @@ std::string to_string(iso_level iso) {
 }
 
 char const* to_string(shutter_speed speed) {
-    auto const spd = speed.value;
-
-    double out = static_cast<double>(spd & shutter_value_mask) / 1000.0;
-    if (spd & shutter_flag_subsecond) 
+    bool subsecond = bool(speed.value & shutter_flag_subsecond);
+    double out = static_cast<double>(speed.value & shutter_value_mask) / 1000.0;
+    if (subsecond) 
         return string_format("1/%.1fs", out).c_str();
     else
         return string_format("%.1fs", out).c_str();
@@ -230,19 +229,27 @@ std::string to_string(image_settings const& image) {
       static_cast<unsigned int>(image.space_on_sdcard));
 }
 
+double ss_to_microsec(uint32_t raw_speed) {
+  /* convert shutter speed raw value (obtained from camera) to microseconds */
+  if (raw_speed & shutter_flag_subsecond)
+    return 1000.0 * (1000000.0 / static_cast<double>(raw_speed & shutter_value_mask));
+  else
+    return 1000.0 * static_cast<double>(raw_speed);
+}
+
 void print(camera_settings const& settings) {
   iso_level iso = { settings.iso };
   iso_level movie_iso = { settings.movie_iso };
-  shutter_speed speed = { settings.shutter_speed };
+  shutter_speed speed { settings.shutter.speed };
 
   printf("camera settings:\n");
   printf("\tiso: %s\n", to_string(iso).c_str());
-  printf("\tshutter_speed: %s\n", to_string(speed));
   printf("\taperture: %s\n", to_string(settings.aperture).c_str());
+  printf("\tshutter_speed: %s\n", to_string(speed));
+  printf("\tshutter_type: %s\n", to_string(settings.shutter.type));
   printf("\twhite_balance: %s\n", to_string(settings.white_balance));
   printf("\tfilm_simulation_mode: %s\n", to_string(settings.film_simulation));
   printf("\texposure_compensation: %.1f\n", static_cast<double>(settings.exposure_compensation) / 1000.0);
-  printf("\tshutter_type: %s\n", to_string(settings.shutter));
   printf("\tbattery_level: %s\n", to_string(settings.battery));
   printf("\t%s\n", to_string(settings.focus_point).c_str());
   printf("\t%s\n", to_string(settings.image).c_str());

@@ -284,29 +284,29 @@ int main() {
 
       case command::set_shutter_speed: {
         if (splitLine.size() > 1) {
-          std::size_t pos = 0;
           double nom, denom;
           int res = std::sscanf(splitLine[1].c_str(), "%lf/%lf", &nom, &denom);
           if (res > 0) {
-            const uint64_t shutter_speed_microsec = (res == 1 ? nom : nom / denom) * 1000000.0;
+            const uint64_t new_speed = (res == 1 ? nom : nom / denom) * 1000000.0;
             camera_settings settings;
-            if (current_settings(sockfd, settings) && settings.shutter_speed > 0 &&
-                shutter_speed_microsec != shutter_speed_microseconds(settings)) {
-              const shutter_speed_stop change = shutter_speed_microsec < shutter_speed_microseconds(settings) ? shutter_speed_one_stop_faster : shutter_speed_one_stop_slower;
-              uint64_t last_shutter_speed = 0;
+            if (current_settings(sockfd, settings) && settings.shutter.speed > 0 &&
+                new_speed != ss_to_microsec(settings.shutter.speed)) {
+              const shutter_speed_stop change = new_speed < ss_to_microsec(settings.shutter.speed) ? shutter_speed_one_stop_faster : shutter_speed_one_stop_slower;
+              uint64_t last_speed = 0;
               do {
-                last_shutter_speed = shutter_speed_microseconds(settings);
+                last_speed = ss_to_microsec(settings.shutter.speed);
                 if (!update_setting(sockfd, change))
                   break;
-              } while(current_settings(sockfd, settings) && 
-                      shutter_speed_microseconds(settings) != last_shutter_speed && 
-                      shutter_speed_microsec != shutter_speed_microseconds(settings) &&
-                      change == (shutter_speed_microsec < shutter_speed_microseconds(settings) ? shutter_speed_one_stop_faster : shutter_speed_one_stop_slower));
+              } while(current_settings(sockfd, settings) &&
+                      ss_to_microsec(settings.shutter.speed) != last_speed &&
+                      new_speed != ss_to_microsec(settings.shutter.speed) &&
+                      change == (new_speed < ss_to_microsec(settings.shutter.speed) ? shutter_speed_one_stop_faster : shutter_speed_one_stop_slower));
               print(settings);
             }
-          } 
+          }
         }
       } break;
+
       case command::white_balance: {
         if (splitLine.size() > 1) {
           int const wbvalue = std::stoi(splitLine[1], 0, 0);

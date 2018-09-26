@@ -67,6 +67,17 @@ struct shutter_speed {
 };
 char const* to_string(shutter_speed speed);
 
+enum shutter_type {
+  mechanical_shutter,
+  electronic_shutter
+};
+char const* to_string(shutter_type shutter);
+
+struct shutter_settings {
+  shutter_speed speed { 0 };
+  shutter_type type;
+};
+
 enum focus_mode {
   manual_focus = 1,
   single_autofocus = 32769,
@@ -120,12 +131,6 @@ enum white_balance_mode {
 char const* to_string(white_balance_mode white_balance);
 bool parse_white_balance_mode(uint16_t const value, white_balance_mode& mode);
 
-enum shutter_type {
-  mechanical_shutter,
-  electronic_shutter
-};
-char const* to_string(shutter_type shutter);
-
 enum recording_mode {
   movie_button_unavailable = 0,
   movie_button_available = 1
@@ -172,7 +177,6 @@ char const* to_string(flash_mode flash);
 struct camera_settings {
   uint32_t iso;
   uint32_t movie_iso;
-  uint32_t shutter_speed;
   uint32_t device_error;
   uint32_t movie_hd_remaining_time;
   int32_t exposure_compensation;
@@ -181,7 +185,7 @@ struct camera_settings {
   auto_focus_point focus_point;
   image_settings image;
   aperture_f_number aperture;
-  shutter_type shutter;
+  shutter_settings shutter;
   battery_level battery;
   flash_mode flash;
   timer_mode self_timer;
@@ -190,20 +194,9 @@ struct camera_settings {
   shooting_mode shooting;
 };
 
-inline uint64_t shutter_speed_microseconds(camera_settings const& settings) {
-  double msec = 0;
-  auto const spd = settings.shutter_speed;
-
-  if (spd & shutter_flag_subsecond) 
-    msec = 1000.0 * (1000000.0 / settings.shutter_speed);
-  else
-    msec = 1000.0 * settings.shutter_speed;
-
-  return msec;
-}
-
 void print(camera_settings const& settings);
 
+double ss_to_microsec(uint32_t raw_speed);
 }  // namespace fcwt
 
 #endif  // FUJI_CAM_WIFI_TOOL_SETTINGS_HPP
