@@ -21,6 +21,7 @@ struct log_settings {
     uint8_t level = LOG_DEBUG;
     uint8_t output = LOG_STDOUT;
 };
+extern log_settings log_conf;
 
 void log(uint8_t level, std::string msg);
 

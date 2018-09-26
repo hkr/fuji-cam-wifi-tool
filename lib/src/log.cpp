@@ -8,10 +8,8 @@
 
 namespace fcwt {
 
-log_settings log_s;
-
 void log(uint8_t level, std::string msg) {
-  if (level <= log_s.level)
+  if (level <= log_conf.level)
     switch(level) {
       case LOG_ERROR: {
         printf("[ERROR] %s\n", msg.c_str());

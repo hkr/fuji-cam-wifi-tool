@@ -26,6 +26,8 @@ using namespace cv;
 
 namespace fcwt {
 
+log_settings log_conf;
+
 #ifdef WITH_OPENCV
 void image_stream_cv_main(std::atomic<bool>& flag) {
   log(LOG_INFO, "image_stream_cv_main");
@@ -151,7 +153,20 @@ std::vector<std::string> split(std::string const& str,
   return result;
 }
 
-int main() {
+int main(int const argc, char const* argv[]) {
+  uint8_t log_level = LOG_INFO;
+
+  if (argc > 1) {
+    std::string arg = argv[1];
+
+    if (arg == "-l" || arg == "--log-level"){
+      std::stringstream convert(argv[2]);
+      convert >> log_level;
+    }
+  }
+
+  log_conf.level = log_level;
+
   /* Set the completion callback. This will be called every time the
    * user uses the <tab> key. */
   linenoiseSetCompletionCallback(completion);
@@ -353,4 +368,4 @@ int main() {
 
 }  // namespace fcwt
 
-int main(const int argc, char const* argv[]) { return fcwt::main(); }
+int main(const int argc, char const* argv[]) { return fcwt::main(argc, argv); }
