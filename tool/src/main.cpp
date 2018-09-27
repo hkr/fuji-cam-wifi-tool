@@ -90,6 +90,7 @@ char const* commandStrings[] = {"connect", "shutter", "stream",
                                 "white_balance", "current_settings",
                                 "film_simulation", "timer", "flash",
                                 "exposure_compensation", "set_exposure_compensation",
+                                "focus_point", "unlock_focus",
 #ifdef WITH_OPENCV
                                 "stream_cv",
 #endif
@@ -112,6 +113,8 @@ enum class command {
   flash,
   exposure_compensation,
   set_exposure_compensation,
+  focus_point,
+  unlock_focus,
 #ifdef WITH_OPENCV
   stream_cv,
 #endif
@@ -424,6 +427,38 @@ int main(int const argc, char const* argv[]) {
               print(settings);
           } else {
             log(LOG_ERROR, string_format("Failed to set timer %d", value));
+          }
+        }
+      } break;
+
+      case command::focus_point: {
+        if (splitLine.size() == 3) {
+          auto_focus_point point;
+          point.x = std::stoi(splitLine[1], 0, 0);
+          point.y = std::stoi(splitLine[2], 0, 0);
+          if (point.x * point.y <= 0) {
+            log(LOG_INFO, "Could not parse provided value");
+            break;
+          }
+
+          if (update_setting(sockfd, point)) {
+            camera_settings settings;
+            if (current_settings(sockfd, settings))
+              print(settings);
+          } else {
+            log(LOG_ERROR, string_format("Failed to adjust focus point"));
+          }
+        }
+      } break;
+
+      case command::unlock_focus: {
+        if (splitLine.size() == 1) {
+          if (unlock_focus(sockfd)) {
+            camera_settings settings;
+            if (current_settings(sockfd, settings))
+              print(settings);
+          } else {
+            log(LOG_ERROR, string_format("Failed to unlock focus"));
           }
         }
       } break;

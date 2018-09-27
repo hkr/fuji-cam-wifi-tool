@@ -26,7 +26,7 @@ enum class message_type : uint16_t {
 
   camera_last_image = 0x9022,
   focus_point = 0x9026,    // updating focus point position
-  focus_lock = 0x9027,     // lock/unlock the current focus point
+  focus_unlock = 0x9027,   // unlock the current focus point
   camera_capabilities = 0x902b,  // unknown, app uses it before camera_remote,
                              // returns 392 bytes of data, maybe the current
                              // settings?
@@ -82,6 +82,8 @@ void fuji_send(native_socket sockfd, static_message<N> const& msg) {
 }
 
 inline void fuji_send(native_socket sockfd, message_header const& msg) {
+  std::string log_msg = string_format("send: %s(%d) ", to_string(msg.type), static_cast<int>(msg.type));
+  log(LOG_DEBUG, log_msg.append(hex_format(&msg, sizeof(message_header))));
   fuji_send(sockfd, &msg, sizeof(message_header));
 }
 

@@ -47,6 +47,7 @@ bool update_setting(native_socket sockfd, timer_mode timer);
 bool update_setting(native_socket sockfd, fnumber_update_direction dir);
 bool update_setting(native_socket sockfd, ss_update_direction dir);
 bool update_setting(native_socket sockfd, exp_update_direction dir);
+bool unlock_focus(native_socket sockfd);
 
 }  // namespace fcwt
 
