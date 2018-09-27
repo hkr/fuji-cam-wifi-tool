@@ -348,7 +348,7 @@ bool update_setting(native_socket sockfd, timer_mode timer) {
 }
 
 bool update_setting(native_socket sockfd, auto_focus_point point) {
-  auto const msg = make_static_message(message_type::focus_point, point.x, point.y, 0x02, 0x03);
+  auto const msg = make_static_message(message_type::focus_point, point.y, point.x, 0x02, 0x03);
   return fuji_message(sockfd, msg);
 }
 
