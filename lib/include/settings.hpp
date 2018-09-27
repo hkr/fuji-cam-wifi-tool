@@ -178,6 +178,7 @@ struct camera_settings {
   uint32_t iso;
   uint32_t movie_iso;
   uint32_t device_error;
+  uint32_t focus_lock;
   uint32_t movie_hd_remaining_time;
   int32_t exposure_compensation;
   white_balance_mode white_balance;

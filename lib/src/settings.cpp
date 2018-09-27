@@ -251,12 +251,13 @@ void print(camera_settings const& settings) {
   printf("\tfilm_simulation_mode: %s\n", to_string(settings.film_simulation));
   printf("\texposure_compensation: %.1f\n", static_cast<double>(settings.exposure_compensation) / 1000.0);
   printf("\tbattery_level: %s\n", to_string(settings.battery));
+  printf("\tfocus_mode: %s\n", to_string(settings.focus));
   printf("\t%s\n", to_string(settings.focus_point).c_str());
+  printf("\tfocus_lock: %s\n", settings.focus_lock ? "on":"off");
   printf("\t%s\n", to_string(settings.image).c_str());
   printf("\tmovie_iso: %s\n", to_string(movie_iso).c_str());
   printf("\tflash: %s\n", to_string(settings.flash));
   printf("\tself_timer: %s\n", to_string(settings.self_timer));
-  printf("\tfocus_mode: %s\n", to_string(settings.focus));
   printf("\tmovie_hd_remaining_time: %ds\n", settings.movie_hd_remaining_time);
   printf("\tshooting_mode: %s\n", to_string(settings.shooting));
   printf("\tdevice_error: %d\n", settings.device_error);
