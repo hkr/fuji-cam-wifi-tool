@@ -333,6 +333,20 @@ bool update_setting(native_socket sockfd, film_simulation_mode film) {
   return fuji_twopart_message(sockfd, msg_1, msg_2);
 }
 
+bool update_setting(native_socket sockfd, flash_mode flash) {
+  auto const msg_1 =
+    make_static_message(message_type::two_part, 0x0c, 0x50, 0x00, 0x00);
+  auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(static_cast<uint16_t>(flash)));
+  return fuji_twopart_message(sockfd, msg_1, msg_2);
+}
+
+bool update_setting(native_socket sockfd, timer_mode timer) {
+  auto const msg_1 =
+    make_static_message(message_type::two_part, 0x12, 0x50, 0x00, 0x00);
+  auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(static_cast<uint16_t>(timer)));
+  return fuji_twopart_message(sockfd, msg_1, msg_2);
+}
+
 bool update_setting(native_socket sockfd, auto_focus_point point) {
   return false;
 }
@@ -346,15 +360,21 @@ bool update_setting(native_socket sockfd, white_balance_mode white_balance) {
   return fuji_twopart_message(sockfd, msg_1, msg_2);
 }
 
-bool update_setting(native_socket sockfd, aperture_f_stop aperture) {
+bool update_setting(native_socket sockfd, fnumber_update_direction dir) {
   auto const msg = make_static_message(
-      message_type::aperture, aperture == aperture_close_third_stop ? 1 : 0, 0, 0, 0);
+      message_type::aperture, dir == fnumber_increment ? 1 : 0, 0, 0, 0);
   return fuji_message(sockfd, msg);
 }
 
-bool update_setting(native_socket sockfd, shutter_speed_stop shutter_speed) {
+bool update_setting(native_socket sockfd, ss_update_direction dir) {
   auto const msg = make_static_message(
-      message_type::shutter_speed, shutter_speed == shutter_speed_one_stop_faster ? 1 : 0, 0, 0, 0);
+      message_type::shutter_speed, dir == ss_increment ? 1 : 0, 0, 0, 0);
+  return fuji_message(sockfd, msg);
+}
+
+bool update_setting(native_socket sockfd, exp_update_direction dir) {
+  auto const msg = make_static_message(
+      message_type::exposure_correction, dir == exp_increment ? 1 : 0, 0, 0, 0);
   return fuji_message(sockfd, msg);
 }
 

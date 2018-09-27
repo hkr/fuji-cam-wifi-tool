@@ -22,14 +22,19 @@ bool shutter(native_socket const sockfd, native_socket const sockfd2, const char
 
 bool current_settings(native_socket sockfd, camera_settings& settings);
 
-enum aperture_f_stop {
-    aperture_open_third_stop,
-    aperture_close_third_stop
+enum fnumber_update_direction {
+    fnumber_increment,
+    fnumber_decrement
 };
 
-enum shutter_speed_stop {
-	shutter_speed_one_stop_faster,
-	shutter_speed_one_stop_slower
+enum ss_update_direction {
+    ss_increment,
+    ss_decrement
+};
+
+enum exp_update_direction {
+    exp_increment,
+    exp_decrement
 };
 
 bool update_setting(native_socket sockfd, iso_level iso);
@@ -37,8 +42,11 @@ bool update_setting(native_socket sockfd, image_settings image);
 bool update_setting(native_socket sockfd, film_simulation_mode film);
 bool update_setting(native_socket sockfd, auto_focus_point point);
 bool update_setting(native_socket sockfd, white_balance_mode white_balance);
-bool update_setting(native_socket sockfd, aperture_f_stop aperture);
-bool update_setting(native_socket sockfd, shutter_speed_stop shutter_speed);
+bool update_setting(native_socket sockfd, flash_mode flash);
+bool update_setting(native_socket sockfd, timer_mode timer);
+bool update_setting(native_socket sockfd, fnumber_update_direction dir);
+bool update_setting(native_socket sockfd, ss_update_direction dir);
+bool update_setting(native_socket sockfd, exp_update_direction dir);
 
 }  // namespace fcwt
 

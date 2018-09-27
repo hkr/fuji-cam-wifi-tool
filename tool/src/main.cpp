@@ -88,7 +88,8 @@ char const* commandStrings[] = {"connect", "shutter", "stream",
                                 "info", "set_iso", "set_aperture", "aperture",
                                 "shutter_speed", "set_shutter_speed",
                                 "white_balance", "current_settings",
-                                "film_simulation",
+                                "film_simulation", "timer", "flash",
+                                "exposure_compensation", "set_exposure_compensation",
 #ifdef WITH_OPENCV
                                 "stream_cv",
 #endif
@@ -107,6 +108,10 @@ enum class command {
   white_balance,
   current_settings,
   film_simulation,
+  timer,
+  flash,
+  exposure_compensation,
+  set_exposure_compensation,
 #ifdef WITH_OPENCV
   stream_cv,
 #endif
@@ -252,16 +257,16 @@ int main(int const argc, char const* argv[]) {
           if (aperture > 0 && aperture < 6400 && 
               current_settings(sockfd, settings) && settings.aperture.value > 0 &&
               aperture != settings.aperture.value) {
-            const aperture_f_stop change = aperture < settings.aperture.value ? aperture_open_third_stop : aperture_close_third_stop;
+            const fnumber_update_direction direction = aperture < settings.aperture.value ? fnumber_decrement : fnumber_increment;
             uint32_t last_aperture = 0;
             do {
               last_aperture = settings.aperture.value;
-              if (!update_setting(sockfd, change))
+              if (!update_setting(sockfd, direction))
                 break;
             } while(current_settings(sockfd, settings) && 
                     settings.aperture.value != last_aperture && 
                     aperture != settings.aperture.value &&
-                    change == (aperture < settings.aperture.value ? aperture_open_third_stop : aperture_close_third_stop));
+                    direction == (aperture < settings.aperture.value ? fnumber_decrement : fnumber_increment));
             print(settings);
           } 
         }
@@ -272,7 +277,7 @@ int main(int const argc, char const* argv[]) {
           int aperture_stops = std::stoi(splitLine[1], 0, 0);
           log(LOG_DEBUG, string_format("%s(%i)", splitLine[0].c_str(), aperture_stops));
           if (aperture_stops != 0) {
-            if (update_setting(sockfd, aperture_stops < 0 ? aperture_open_third_stop : aperture_close_third_stop)) {
+            if (update_setting(sockfd, aperture_stops < 0 ? fnumber_decrement : fnumber_increment)) {
               camera_settings settings;
               if (current_settings(sockfd, settings))
                 print(settings);
@@ -288,7 +293,7 @@ int main(int const argc, char const* argv[]) {
           int shutter_stops = std::stoi(splitLine[1], 0, 0);
           log(LOG_DEBUG, string_format("%s(%i)", splitLine[0].c_str(), shutter_stops));
           if (shutter_stops != 0) {
-            if (update_setting(sockfd, shutter_stops < 0 ? shutter_speed_one_stop_slower : shutter_speed_one_stop_faster)) {
+            if (update_setting(sockfd, shutter_stops < 0 ? ss_decrement : ss_increment)) {
               camera_settings settings;
               if (current_settings(sockfd, settings))
                 print(settings);
@@ -304,23 +309,59 @@ int main(int const argc, char const* argv[]) {
           double nom, denom;
           int res = std::sscanf(splitLine[1].c_str(), "%lf/%lf", &nom, &denom);
           if (res > 0) {
-            const uint64_t new_speed = (res == 1 ? nom : nom / denom) * 1000000.0;
+            double new_speed = (res == 1 ? nom : nom / denom) * 1000000.0;
             camera_settings settings;
             if (current_settings(sockfd, settings) && settings.shutter.speed > 0 &&
                 new_speed != ss_to_microsec(settings.shutter.speed)) {
-              const shutter_speed_stop change = new_speed < ss_to_microsec(settings.shutter.speed) ? shutter_speed_one_stop_faster : shutter_speed_one_stop_slower;
+              const ss_update_direction direction = new_speed < ss_to_microsec(settings.shutter.speed) ? ss_increment : ss_decrement;
               uint64_t last_speed = 0;
               do {
                 last_speed = ss_to_microsec(settings.shutter.speed);
-                if (!update_setting(sockfd, change))
+                if (!update_setting(sockfd, direction))
                   break;
               } while(current_settings(sockfd, settings) &&
                       ss_to_microsec(settings.shutter.speed) != last_speed &&
                       new_speed != ss_to_microsec(settings.shutter.speed) &&
-                      change == (new_speed < ss_to_microsec(settings.shutter.speed) ? shutter_speed_one_stop_faster : shutter_speed_one_stop_slower));
+                      direction == (new_speed < ss_to_microsec(settings.shutter.speed) ? ss_increment : ss_decrement));
               print(settings);
             }
           }
+        }
+      } break;
+
+      case command::exposure_compensation: {
+        if (splitLine.size() > 1) {
+          int direction = std::stoi(splitLine[1], 0, 0);
+          log(LOG_DEBUG, string_format("%s(%i)", splitLine[0].c_str(), direction));
+          if (direction != 0) {
+            if (update_setting(sockfd, direction < 0 ? exp_decrement : exp_increment)) {
+              camera_settings settings;
+              if (current_settings(sockfd, settings))
+                print(settings);
+            } else {
+              log(LOG_ERROR, string_format("Failed to adjust exposure correction %i", direction));
+            }
+          }
+        }
+      } break;
+
+      case command::set_exposure_compensation: {
+        if (splitLine.size() > 1) {
+          int32_t const exp = static_cast<int32_t>(std::stod(splitLine[1]) * 1000.0);
+          camera_settings settings;
+          if (current_settings(sockfd, settings) && exp != settings.exposure_compensation) {
+            const exp_update_direction direction = exp < settings.exposure_compensation ? exp_decrement : exp_increment;
+            int32_t last_exp = 0;
+            do {
+              last_exp = settings.exposure_compensation;
+              if (!update_setting(sockfd, direction))
+                break;
+            } while(current_settings(sockfd, settings) && 
+                    settings.exposure_compensation != last_exp && 
+                    exp != settings.exposure_compensation &&
+                    direction == (exp < settings.exposure_compensation ? exp_decrement : exp_increment));
+            print(settings);
+          } 
         }
       } break;
 
@@ -351,6 +392,38 @@ int main(int const argc, char const* argv[]) {
               print(settings);
           } else {
             log(LOG_ERROR, string_format("Failed to set film simulation %d", value));
+          }
+        }
+      } break;
+
+      case command::flash: {
+        if (splitLine.size() > 1) {
+          int const value = std::stoi(splitLine[1], 0, 0);
+          flash_mode flash = static_cast<flash_mode>(value);
+          log(LOG_DEBUG, string_format("%s (%d)", splitLine[0].c_str(), value));
+
+          if (update_setting(sockfd, flash)) {
+            camera_settings settings;
+            if (current_settings(sockfd, settings))
+              print(settings);
+          } else {
+            log(LOG_ERROR, string_format("Failed to set flash mode  %d", value));
+          }
+        }
+      } break;
+
+      case command::timer: {
+        if (splitLine.size() > 1) {
+          int const value = std::stoi(splitLine[1], 0, 0);
+          timer_mode timer = static_cast<timer_mode>(value);
+          log(LOG_DEBUG, string_format("%s (%d)", splitLine[0].c_str(), value));
+
+          if (update_setting(sockfd, timer)) {
+            camera_settings settings;
+            if (current_settings(sockfd, settings))
+              print(settings);
+          } else {
+            log(LOG_ERROR, string_format("Failed to set timer %d", value));
           }
         }
       } break;

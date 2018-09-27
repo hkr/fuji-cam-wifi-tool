@@ -19,6 +19,10 @@ char const* to_string(message_type type) {
     MESSAGE_TYPE_TO_STRING_CASE(single_part);
     MESSAGE_TYPE_TO_STRING_CASE(two_part);
     MESSAGE_TYPE_TO_STRING_CASE(full_image);
+    MESSAGE_TYPE_TO_STRING_CASE(focus_point);
+    MESSAGE_TYPE_TO_STRING_CASE(shutter_speed);
+    MESSAGE_TYPE_TO_STRING_CASE(aperture);
+    MESSAGE_TYPE_TO_STRING_CASE(exposure_correction);
     MESSAGE_TYPE_TO_STRING_CASE(camera_remote);
     MESSAGE_TYPE_TO_STRING_CASE(camera_last_image);
     MESSAGE_TYPE_TO_STRING_CASE(camera_capabilities);

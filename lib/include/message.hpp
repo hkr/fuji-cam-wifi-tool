@@ -25,11 +25,14 @@ enum class message_type : uint16_t {
   camera_remote = 0x101c,  // last command before camera remote works
 
   camera_last_image = 0x9022,
+  focus_point = 0x9026,    // updating focus point position
+  focus_lock = 0x9027,     // lock/unlock the current focus point
   camera_capabilities = 0x902b,  // unknown, app uses it before camera_remote,
                              // returns 392 bytes of data, maybe the current
                              // settings?
-  aperture = 0x902d, // relative adjustement of aperature by one third stop
   shutter_speed = 0x902c, // relative adjustment of sutter speed
+  aperture = 0x902d, // relative adjustement of aperature by one third stop
+  exposure_correction = 0x902e, // relative adjustment of exposure correction
 };
 
 char const* to_string(message_type type);
