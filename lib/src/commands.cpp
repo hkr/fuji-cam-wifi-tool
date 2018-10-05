@@ -316,6 +316,7 @@ camera_capabilities parse_camera_caps(void const* data, size_t const size) {
 }  // namespace
 
 bool update_setting(native_socket sockfd, iso_level iso) {
+  if (sockfd <= 0) return false;
   auto const msg_1 =
       make_static_message(message_type::two_part, 0x2A, 0xD0, 0x00, 0x00);
   auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(iso));
@@ -327,6 +328,7 @@ bool update_setting(native_socket sockfd, image_settings image) {
 }
 
 bool update_setting(native_socket sockfd, film_simulation_mode film) {
+  if (sockfd <= 0) return false;
   auto const msg_1 =
     make_static_message(message_type::two_part, 0x01, 0xd0, 0x00, 0x00);
   auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(static_cast<uint16_t>(film)));
@@ -334,6 +336,7 @@ bool update_setting(native_socket sockfd, film_simulation_mode film) {
 }
 
 bool update_setting(native_socket sockfd, flash_mode flash) {
+  if (sockfd <= 0) return false;
   auto const msg_1 =
     make_static_message(message_type::two_part, 0x0c, 0x50, 0x00, 0x00);
   auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(static_cast<uint16_t>(flash)));
@@ -341,6 +344,7 @@ bool update_setting(native_socket sockfd, flash_mode flash) {
 }
 
 bool update_setting(native_socket sockfd, timer_mode timer) {
+  if (sockfd <= 0) return false;
   auto const msg_1 =
     make_static_message(message_type::two_part, 0x12, 0x50, 0x00, 0x00);
   auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(static_cast<uint16_t>(timer)));
@@ -348,15 +352,18 @@ bool update_setting(native_socket sockfd, timer_mode timer) {
 }
 
 bool update_setting(native_socket sockfd, auto_focus_point point) {
+  if (sockfd <= 0) return false;
   auto const msg = make_static_message(message_type::focus_point, point.y, point.x, 0x02, 0x03);
   return fuji_message(sockfd, msg);
 }
 
 bool unlock_focus(native_socket sockfd) {
+  if (sockfd <= 0) return false;
   return fuji_message(sockfd, make_static_message(message_type::focus_unlock));
 }
 
 bool update_setting(native_socket sockfd, white_balance_mode white_balance) {
+  if (sockfd <= 0) return false;
   //10:00:00:00 01:00:16:10 68:00:00:00 05:50:00:00
   //0e:00:00:00 02:00:16:10 68:00:00:00 06:80
   auto const msg_1 =
@@ -366,18 +373,21 @@ bool update_setting(native_socket sockfd, white_balance_mode white_balance) {
 }
 
 bool update_setting(native_socket sockfd, fnumber_update_direction dir) {
+  if (sockfd <= 0) return false;
   auto const msg = make_static_message(
       message_type::aperture, dir == fnumber_increment ? 1 : 0, 0, 0, 0);
   return fuji_message(sockfd, msg);
 }
 
 bool update_setting(native_socket sockfd, ss_update_direction dir) {
+  if (sockfd <= 0) return false;
   auto const msg = make_static_message(
       message_type::shutter_speed, dir == ss_increment ? 1 : 0, 0, 0, 0);
   return fuji_message(sockfd, msg);
 }
 
 bool update_setting(native_socket sockfd, exp_update_direction dir) {
+  if (sockfd <= 0) return false;
   auto const msg = make_static_message(
       message_type::exposure_correction, dir == exp_increment ? 1 : 0, 0, 0, 0);
   return fuji_message(sockfd, msg);
@@ -583,6 +593,9 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
   fuji_send(sockfd, &msg, sizeof(msg));
   uint8_t buf[1024];
   size_t receivedBytes = fuji_receive(sockfd, buf);
+
+  if (receivedBytes == 0)
+    return false;
 
   log(LOG_DEBUG2, string_format("Status: %zd bytes ", receivedBytes).append(hex_format(buf, receivedBytes)));
 
