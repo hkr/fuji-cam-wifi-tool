@@ -167,11 +167,8 @@ int main(int const argc, char const* argv[]) {
 
   if (argc > 1) {
     std::string arg = argv[1];
-
-    if (arg == "-l" || arg == "--log-level"){
-      std::stringstream convert(argv[2]);
-      convert >> log_level;
-    }
+    if (arg == "-l" || arg == "--log-level")
+      log_level = std::stoi(argv[2], 0, 0);
   }
 
   log_conf.level = log_level;
