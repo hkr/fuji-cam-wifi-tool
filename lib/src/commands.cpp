@@ -132,148 +132,98 @@ uint8_t message10[] =
 /*
 * Capability messages are of the format:
 * --
-* 2 bytes          type
-* 2 bytes          format (3, 4 or 6)
+* 2 bytes          DevicePropertyCode
+* 2 bytes          DataType (3 (2bytes), 4 (2bytes) or 6 (4bytes))
 * --
-* 1 byte           separator (0x01)
+* 1 byte           GetSet (0: get only, 1: get and set)
 * --
-* N bytes          minimum value that can be chosen
-* N bytes          current value
+* N bytes          FactoryDefaultValue
+* N bytes          CurrentValue
 * --
-* 1 byte           separator (0x02)
+* 1 byte           FormFlag (1: range(min, max, step); 2: list)
 * --
-* 2 bytes          count of possible values
-* count * N bytes  list of all supported values
+* --
+* N bytes          MinValue
+* N bytes          MaxValue
+* N bytes          StepSize
+* -- or --
+* 2 bytes          NumberOfValues
+* count * N bytes  Values
+* --
 * --
 *
-* N can be equal to either 2 or 4 depending on the format bytes
-*   format = 3 or 4 => N = 2
-*   format = 6      => N = 4
+* N depends on the DataType field
 */
 
-void parse_capability(capability& cap, uint8_t const* data,
-                      size_t const value_size) {
-
-    uint16_t count = capability_max_modes;
+capability parse_capability(uint8_t const* data, size_t const size) {
+    uint16_t count = capability_max_values;
+    uint8_t value_size = 2;
+    uint8_t offset = 0;
     uint32_t tmp;
-    uint8_t offset = 4; // skip capability header
+    capability cap;
 
-    // skip separator
-    offset += 1;
-    memcpy(&cap.min_value, data + offset, value_size);
+    if (size < 4) return cap;
 
-    // skip minimum value field
-    offset += value_size;
-    memcpy(&cap.value, data + offset, value_size);
-
-    // skip current value field and separator
-    offset += value_size + 1;
-    memcpy(&cap.count, data + offset, value_size);
-    count = std::min(cap.count, count);
-
-    // skip count
+    // Read DevicePropertyCode
+    memcpy(&cap.property_code, data + offset, 2);
     offset += 2;
-    for (uint16_t i = 0; i < count; i++) {
-        tmp = 0;
-        memcpy(&tmp, data + offset + value_size*i, value_size);
-        cap.modes[i] = tmp;
+    // Read DataType
+    memcpy(&cap.data_type, data + offset, 2);
+    offset += 2;
+
+    if (cap.data_type == 3 || cap.data_type == 4)
+        value_size = 2;
+    else if (cap.data_type == 6)
+        value_size = 4;
+
+    // Read GetSet flag
+    memcpy(&cap.get_set, data + offset, 1);
+    offset += 1;
+
+    // Read FactoryDefaultValue
+    memcpy(&cap.default_value, data + offset, value_size);
+    offset += value_size;
+    // Read CurrentValue
+    memcpy(&cap.current_value, data + offset, value_size);
+    offset += value_size;
+
+    // Read FormFlag
+    memcpy(&cap.form_flag, data + offset, 1);
+    offset += 1;
+
+    if (cap.form_flag == 1) {
+        // Read MinValue
+        memcpy(&cap.min_value, data + offset, value_size);
+        offset += value_size;
+        // Read MaxValue
+        memcpy(&cap.max_value, data + offset, value_size);
+        offset += value_size;
+        // Read StepSize
+        memcpy(&cap.step_size, data + offset, value_size);
+        offset += value_size;
+
+    } else if (cap.form_flag == 2) {
+        // Read Count
+        memcpy(&cap.count, data + offset, 2);
+        count = std::min(cap.count, count);
+        offset += 2;
+
+        // Read Value list
+        for (uint16_t i = 0; i < count; i++) {
+            tmp = 0;
+            memcpy(&tmp, data + offset + value_size*i, value_size);
+            cap.values[i] = tmp;
+        }
     }
+
+    std::string log_capability = std::string("capability: ").append(hex_format(data, size));
+    log(LOG_DEBUG2, log_capability.append(property_strings[cap.property_code]));
+
+    return cap;
 }
 
-void read_capability_submsg(camera_capabilities& caps,
-                            uint8_t const* data, size_t const size) {
-  if (size < 4) return;
-
-  struct capability_header {
-    uint16_t type, format;
-  };
-  capability_header header = {};
-  memcpy(&header, data, sizeof(header));
-
-  std::string log_capability = std::string("capability: ").append(hex_format(data, size));
-
-  switch (header.format) {
-    default: {
-      log(LOG_WARN, log_capability.append("Unknown"));
-    } break;
-
-    case 3: {
-      switch (header.type) {
-        case 0x5010: {
-          log(LOG_DEBUG2, log_capability.append("(EXPOSURE_CORRECTION)"));
-          parse_capability(caps.exposure_compensation, data, 2);
-        } break;
-
-        default: {
-          log(LOG_WARN, log_capability.append("Unknown"));
-        } break;
-      }
-    } break;
-
-    case 4: {
-      switch (header.type) {
-        case 0x5007: {
-          log(LOG_DEBUG, log_capability.append("(APERTURE)"));
-          parse_capability(caps.aperture, data, 2);
-        } break;
-
-        case 0x5012: {
-          log(LOG_DEBUG2, log_capability.append("(TIMER)"));
-          parse_capability(caps.self_timer, data, 2);
-        } break;
-
-        case 0x500C: {
-          log(LOG_DEBUG2, log_capability.append("(FLASH)"));
-          parse_capability(caps.flash, data, 2);
-        } break;
-
-        case 0x5005: {
-          log(LOG_DEBUG2, log_capability.append("(WHITE_BALANCE)"));
-          parse_capability(caps.white_balance, data, 2);
-        } break;
-
-        case 0xD001: {
-          log(LOG_DEBUG2, log_capability.append("(FILM_SIMULATION)"));
-          parse_capability(caps.film_simulation, data, 2);
-        } break;
-
-        case 0xD019: {
-          log(LOG_DEBUG2, log_capability.append("(RECMODE_ENABLE)"));
-          parse_capability(caps.recording, data, 2);
-        } break;
-
-        default: {
-          log(LOG_WARN, log_capability.append("Unknown"));
-        } break;
-      }
-    } break;
-
-    case 6: {
-      switch (header.type) {
-        case 0xD02A: {
-          log(LOG_DEBUG2, log_capability.append("(ISO)"));
-          parse_capability(caps.iso, data, 4);
-        } break;
-
-        case 0xD240: {
-          log(LOG_DEBUG2, log_capability.append("(SHUTTER_SPEED)"));
-          parse_capability(caps.shutter, data, 4);
-        } break;
-
-        case 0xD17C: {
-          log(LOG_DEBUG, log_capability.append("(S1_LOCK)"));
-        } break;
-
-        default: {
-          log(LOG_WARN, log_capability.append("Unknown"));
-        } break;
-      }
-    } break;
-  }
-}
-
-camera_capabilities parse_camera_caps(void const* data, size_t const size) {
-  camera_capabilities caps = {};
+std::vector<capability> parse_camera_caps(void const* data, size_t const size) {
+  std::vector<capability> caps;
   size_t remainingBytes = size;
   uint8_t const* bytes = static_cast<uint8_t const*>(data);
   if (remainingBytes < 12) return caps;
@@ -304,7 +254,7 @@ camera_capabilities parse_camera_caps(void const* data, size_t const size) {
       break;
     }
 
-    read_capability_submsg(caps, bytes, subMsgSize);
+    caps.push_back(parse_capability(bytes, subMsgSize));
 
     bytes += subMsgSize;
     remainingBytes -= subMsgSize;
@@ -394,7 +344,7 @@ bool update_setting(native_socket sockfd, exp_update_direction dir) {
 }
 
 bool init_control_connection(native_socket const sockfd, char const* deviceName,
-                             camera_capabilities* caps) {
+                             std::vector<capability>* caps) {
   if (sockfd <= 0) return false;
 
   if (!deviceName || !deviceName[0]) deviceName = "CameraClient";
@@ -442,7 +392,7 @@ bool init_control_connection(native_socket const sockfd, char const* deviceName,
   fuji_send(sockfd, make_static_message(message_type::camera_capabilities));
   auto size = fuji_receive_log(sockfd, buffer);
 
-  if (caps) *caps = parse_camera_caps(buffer, size);
+  *caps = parse_camera_caps(buffer, size);
 
   fuji_receive_log(sockfd, buffer);
 
@@ -611,7 +561,7 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
 
   for (uint16_t i = 0; i < numSettings; ++i)
   {
-    uint16_t code;
+    property_codes code;
     uint32_t value;
     uint8_t* data = ptr + i * 6;
     memcpy(&code, data, 2);
@@ -619,118 +569,95 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
 
     std::string log_setting = std::string("Setting msg: ").append(hex_format(&code, 2))
                                                           .append(hex_format(&value, 4));
+    log(LOG_DEBUG2, log_setting.append(property_strings[code]));
 
     switch(code) {
-      case 0x5005: {
-        log(LOG_DEBUG2, log_setting.append("(WHITE_BALANCE)"));
+      case property_white_balance: {
         settings.white_balance = static_cast<white_balance_mode>(value);
       } break;
 
-      case 0x5007: {
-        log(LOG_DEBUG2, log_setting.append("(APERTURE)"));
+      case property_aperture: {
         settings.aperture.value = value;
       } break;
 
-      case 0x500a: {
+      case property_focus_mode: {
         // focus mode, S-AF: 0x8001, C-AF: 0x8002, MF: 1
-        log(LOG_DEBUG2, log_setting.append("(AUTOFOCUS)"));
         settings.focus = static_cast<focus_mode>(value);
       } break;
 
-      case 0x500c: {
-        log(LOG_DEBUG2, log_setting.append("(FLASH)"));
+      case property_flash: {
         settings.flash = static_cast<flash_mode>(value);
       } break;
 
-      case 0x500e: {
-        log(LOG_DEBUG2, log_setting.append("(SHOOTING_MODE)"));
+      case property_shooting_mode: {
         settings.shooting = static_cast<shooting_mode>(value);
       } break;
 
-      case 0x5010: {
-        log(LOG_DEBUG2, log_setting.append("(EXPOSURE_CORRECTION)"));
+      case property_exposure_compensation: {
         settings.exposure_compensation = static_cast<int16_t>(static_cast<uint16_t>(value));
       } break;
 
-      case 0x5012: {
+      case property_self_timer: {
         // self-timer, 0 = disabled, 2 = 2s, 4 = 10s
-        log(LOG_DEBUG2, log_setting.append("(TIMER)"));
         settings.self_timer = static_cast<timer_mode>(value);
       } break;
 
-      case 0xD001: {
-        log(LOG_DEBUG2, log_setting.append("(FILM_SIMULATION)"));
+      case property_film_simulation: {
         settings.film_simulation = static_cast<film_simulation_mode>(value);
       } break;
 
-      case 0xD018: {
-        log(LOG_DEBUG2, log_setting.append("(IMAGE_FORMAT)"));
+      case property_image_format: {
         image_format = value;
       } break;
 
-      case 0xD028: {
+      case property_shutter_type: {
         // shutter type when shutter is in auto mode, 0 = MS+ES, 1 = ES
-        log(LOG_DEBUG2, log_setting.append("(SHUTTER_TYPE)"));
         settings.shutter.type = value ? electronic_shutter : mechanical_shutter;
       } break;
 
-      case 0xD02A: {
-        log(LOG_DEBUG2, log_setting.append("(ISO)"));
+      case property_iso: {
         settings.iso = value;
       } break;
 
-      case 0xd02b: {
-        log(LOG_DEBUG2, log_setting.append("(MOVIE_ISO)"));
+      case property_movie_iso: {
         settings.movie_iso = value;
       } break;
 
-      case 0xD17C: {
-        log(LOG_DEBUG2, log_setting.append("(FOCUS_POINT)"));
+      case property_focus_point: {
         parse_auto_focus(value, settings.focus_point);
       } break;
 
-      case 0xD209: {
+      case property_focus_lock: {
         // focus lock (S1_LOCK_COLOR)
-        log(LOG_DEBUG2, log_setting.append("(FOCUS_LOCK)"));
         settings.focus_lock = value;
       } break;
 
-      case 0xd21b: {
-        log(LOG_DEBUG2, log_setting.append("(DEVICE_ERROR)"));
+      case property_device_error: {
         settings.device_error = value;
       } break;
 
-      case 0xD229: {
-        log(LOG_DEBUG2, log_setting.append("(IMAGE_SPACE_SD)"));
+      case property_image_space_sd: {
         image_space_on_sdcard = value;
       } break;
 
-      case 0xd22a: {
-        log(LOG_DEBUG2, log_setting.append("(MOVIE_HD_REMAINING_TIME)"));
+      case property_movie_remaining_time: {
         settings.movie_hd_remaining_time = value;
       } break;
 
-      case 0xD240: {
+      case property_shutter_speed: {
         // shutter speed; 4 bytes; MSB is a flag to indicate whether this
         // is a subsecond value (i.e. 1/Ns)
-        log(LOG_DEBUG2, log_setting.append("(SHUTTER_SPEED)"));
         settings.shutter.speed = value;
       } break;
 
-      case 0xD241: {
-        log(LOG_DEBUG2, log_setting.append("(IMAGE_ASPECT)"));
+      case property_image_aspect: {
         image_size_aspect = value;
       } break;
 
-      case 0xd242: {
+      case property_battery_level: {
         // battery level, 4: full (3 bars), 3: mid (2 bars), 2: min (1 bar), 1: critical
-        log(LOG_DEBUG2, log_setting.append("(BATTERY_LEVEL)"));
         settings.battery = static_cast<battery_level>(value);
       } break;
-
-      default:
-        log(LOG_WARN, log_setting.insert(0, "Unknown setting"));
-        break;
     }
   }
 

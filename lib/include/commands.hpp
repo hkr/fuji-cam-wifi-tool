@@ -15,7 +15,7 @@
 namespace fcwt {
 
 bool init_control_connection(native_socket sockfd, char const* deviceName,
-                             camera_capabilities* caps);
+                             std::vector<capability>* caps);
 void terminate_control_connection(native_socket sockfd);
 
 bool shutter(native_socket const sockfd, native_socket const sockfd2, const char* thumbnail = 0);

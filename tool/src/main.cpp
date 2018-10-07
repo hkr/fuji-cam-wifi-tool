@@ -184,7 +184,7 @@ int main(int const argc, char const* argv[]) {
 #ifdef WITH_OPENCV
   std::thread imageStreamCVThread;
 #endif
-  camera_capabilities caps = {};
+  std::vector<capability> caps;
 
   std::string line;
   while (getline(line)) {
