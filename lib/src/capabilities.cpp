@@ -6,14 +6,6 @@
 
 namespace fcwt {
 
-std::string to_string(aperture_f_number aperture)
-{
-    if (aperture.value)
-        return string_format("%.1ff", static_cast<float>(aperture.value) / 100.f);
-    else
-        return "auto";
-}
-
 #define PRINT_CAPABILITY(value, value_string, default_value, current_value) \
             std::string flag = ""; \
             if (value == current_value && value == default_value) \
@@ -28,6 +20,11 @@ void print(std::vector<capability> const& caps) {
     printf("camera capabilities:\n");
 
     for (capability cap : caps) {
+        if (! property_strings.count(cap.property_code)) {
+            printf("\t%s: %s\n", property_strings[property_unknown], hex_format(&cap.property_code, 2).c_str());
+            continue;
+        }
+
         printf("\t%s%s:\n", property_strings[cap.property_code], cap.get_set ? "" : " (immutable)");
 /*
         if (cap.form_flag == 1) {
@@ -57,38 +54,13 @@ void print(std::vector<capability> const& caps) {
                                  cap.default_value, cap.current_value);
             }
 
-        } else if (cap.property_code == property_self_timer) {
+        } else if (cap.property_code == property_self_timer ||
+                   cap.property_code == property_flash ||
+                   cap.property_code == property_film_simulation ||
+                   cap.property_code == property_recmode_enable ||
+                   cap.property_code == property_white_balance) {
             for (uint16_t i = 0; i < cap.count; ++i) {
-                timer_mode mode = static_cast<timer_mode>(cap.values[i]);
-                PRINT_CAPABILITY(cap.values[i], to_string(mode),
-                                 cap.default_value, cap.current_value);
-            }
-
-        } else if (cap.property_code == property_flash) {
-            for (uint16_t i = 0; i < cap.count; ++i) {
-                flash_mode mode = static_cast<flash_mode>(cap.values[i]);
-                PRINT_CAPABILITY(cap.values[i], to_string(mode),
-                                 cap.default_value, cap.current_value);
-            }
-
-        } else if (cap.property_code == property_white_balance) {
-            for (uint16_t i = 0; i < cap.count; ++i) {
-                white_balance_mode mode = static_cast<white_balance_mode>(cap.values[i]);
-                PRINT_CAPABILITY(cap.values[i], to_string(mode),
-                                 cap.default_value, cap.current_value);
-            }
-
-        } else if (cap.property_code == property_film_simulation) {
-            for (uint16_t i = 0; i < cap.count; ++i) {
-                film_simulation_mode mode = static_cast<film_simulation_mode>(cap.values[i]);
-                PRINT_CAPABILITY(cap.values[i], to_string(mode),
-                                 cap.default_value, cap.current_value);
-            }
-
-        } else if (cap.property_code == property_recmode_enable) {
-            for (uint16_t i = 0; i < cap.count; ++i) {
-                recording_mode mode = static_cast<recording_mode>(cap.values[i]);
-                PRINT_CAPABILITY(cap.values[i], to_string(mode),
+                PRINT_CAPABILITY(cap.values[i], property_value_strings[cap.property_code][cap.values[i]],
                                  cap.default_value, cap.current_value);
             }
 
@@ -103,8 +75,6 @@ void print(std::vector<capability> const& caps) {
             printf("\t\tvalue: %s\n", to_string(spd));
 
         } else if (cap.property_code == property_focus_point) {
-
-        } else if (cap.property_code == property_unknown) {
 
         }
     }

@@ -14,44 +14,213 @@ const uint32_t iso_value_mask = 0x00ffffff;
 const uint32_t shutter_flag_subsecond = 1 << 31;
 const uint32_t shutter_value_mask = 0x0fffffff;
 
-enum image_format {
-  image_format_jpeg,
-  image_format_raw_and_jpeg
-  // when querying settings from camera we get RAW + FINE even when it's in pure RAW mode
-  // so no extra image_format_raw
-};
+// when querying settings from camera we get RAW + FINE even when it's in pure RAW mode
+// so no extra image_format_raw
+#define IMAGE_FORMAT_FINE 2
+#define IMAGE_FORMAT_NORMAL 3
+#define IMAGE_FORMAT_FINE_RAW  4
+#define IMAGE_FORMAT_NORMAL_RAW  5
+#define IMAGE_ASPECT_S_3x2  2
+#define IMAGE_ASPECT_S_16x9  3
+#define IMAGE_ASPECT_S_1x1  4
+#define IMAGE_ASPECT_M_3x2  6
+#define IMAGE_ASPECT_M_16x9  7
+#define IMAGE_ASPECT_M_1x1  8
+#define IMAGE_ASPECT_L_3x2  10
+#define IMAGE_ASPECT_L_16x9  11
+#define IMAGE_ASPECT_L_1x1  12
+#define FOCUS_MANUAL  1
+#define FOCUS_SINGLE_AUTO  32769
+#define FOCUS_CONTINUOUS_AUTO  32770
+#define TIMER_OFF  0
+#define TIMER_1SEC  1
+#define TIMER_2SEC  2
+#define TIMER_5SEC  3
+#define TIMER_10SEC  4
+#define FILM_SIMULATION_PROVIA  1
+#define FILM_SIMULATION_VELVIA  2
+#define FILM_SIMULATION_ASTIA  3
+#define FILM_SIMULATION_MONOCHROME  4
+#define FILM_SIMULATION_SEPIA  5
+#define FILM_SIMULATION_PRO_NEG_HI  6
+#define FILM_SIMULATION_PRO_NEG_STD  7
+#define FILM_SIMULATION_MONOCHROME_Y_FILTER  8
+#define FILM_SIMULATION_MONOCHROME_R_FILTER  9
+#define FILM_SIMULATION_MONOCHROME_G_FILTER  10
+#define FILM_SIMULATION_CLASSIC_CHROME  11
+#define FILM_SIMULATION_ACROS  12
+#define FILM_SIMULATION_ACROS_Y  13
+#define FILM_SIMULATION_ACROS_R  14
+#define FILM_SIMULATION_ACROS_G  15
+#define FILM_SIMULATION_ETERNA  16
+#define WHITE_BALANCE_AUTO  2
+#define WHITE_BALANCE_FINE  4
+#define WHITE_BALANCE_INCANDESCENT  6
+#define WHITE_BALANCE_FLUORESCENT_1  0X8001
+#define WHITE_BALANCE_FLUORESCENT_2  0X8002
+#define WHITE_BALANCE_FLUORESCENT_3  0X8003
+#define WHITE_BALANCE_SHADE  0X8006
+#define WHITE_BALANCE_UNDERWATER  0X800a
+#define WHITE_BALANCE_TEMPERATURE  0X800b
+#define WHITE_BALANCE_CUSTOM  0X800c 
+#define MOVIE_BUTTON_UNAVAILABLE  0
+#define MOVIE_BUTTON_AVAILABLE  1
+#define SHOOTING_MANUAL  1
+#define SHOOTING_PROGRAM  2
+#define SHOOTING_APERTURE_PRIORITY  3
+#define SHOOTING_SHUTTER_PRIORITY  4
+#define SHOOTING_AUTO  6
+#define BATTERY_CRITICAL  1
+#define BATTERY_ONE_BAR  2
+#define BATTERY_TWO_BAR  3
+#define BATTERY_FULL  4
+#define FLASH_AUTO  1
+#define FLASH_OFF  2
+#define FLASH_FILL  3
+#define FLASH_REDEYE_AUTO  4
+#define FLASH_REDEYE_FILL  5
+#define FLASH_EXTERNAL_SYNC  6
+#define FLASH_ON  32769
+#define FLASH_REDEYE  32770
+#define FLASH_REDEYE_ON  32771
+#define FLASH_REDEYE_SYNC  32772
+#define FLASH_REDEYE_REAR  32773
+#define FLASH_SLOW_SYNC  32774
+#define FLASH_REAR_SYNC  32775
+#define FLASH_COMMANDER  32776
+#define FLASH_DISABLE  32777
+#define FLASH_ENABLE  32778
+#define F_SS_CTRL_BOTH  0
+#define F_SS_CTRL_F  1
+#define F_SS_CTRL_SS  2
+#define F_SS_CTRL_NONE  3
+#define FOCUS_LOCK_OFF  0
+#define FOCUS_LOCK_ON  1
+#define DEVICE_ERROR_NONE 0
 
-enum jpeg_quality {
-  jpeg_quality_fine,
-  jpeg_quality_normal,
+static std::map<property_codes, std::map<uint16_t, const char *>> property_value_strings = {
+   { property_white_balance, {
+        { WHITE_BALANCE_AUTO, "Auto" },
+        { WHITE_BALANCE_FINE, "Fine" },
+        { WHITE_BALANCE_INCANDESCENT, "Incandescent" },
+        { WHITE_BALANCE_FLUORESCENT_1, "Fluorescent 1" },
+        { WHITE_BALANCE_FLUORESCENT_2, "Fluorescent 2" },
+        { WHITE_BALANCE_FLUORESCENT_3, "Fluorescent 3" },
+        { WHITE_BALANCE_SHADE, "Shade" },
+        { WHITE_BALANCE_UNDERWATER, "Underwater" },
+        { WHITE_BALANCE_TEMPERATURE, "Kelvin" },
+        { WHITE_BALANCE_CUSTOM, "Custom" },
+   }},
+   { property_focus_mode, {
+        { FOCUS_MANUAL, "Manual" },
+        { FOCUS_SINGLE_AUTO, "Single Autofocus"},
+        { FOCUS_CONTINUOUS_AUTO, "Continuous Autofocus"},
+   }},
+   { property_shooting_mode, {
+        { SHOOTING_MANUAL, "Manual" },
+        { SHOOTING_PROGRAM, "Program" },
+        { SHOOTING_APERTURE_PRIORITY, "Aperture Priority" },
+        { SHOOTING_SHUTTER_PRIORITY, "Shutter Priority" },
+        { SHOOTING_AUTO, "Auto" },
+   }},
+   { property_flash, {
+        { FLASH_AUTO, "Auto" },
+        { FLASH_OFF, "Off" },
+        { FLASH_FILL, "Fill" },
+        { FLASH_REDEYE_AUTO, "Red Eye Auto" },
+        { FLASH_REDEYE_FILL, "Red Eye Fill" },
+        { FLASH_EXTERNAL_SYNC, "External Sync" },
+        { FLASH_ON, "On" },
+        { FLASH_REDEYE, "Red Eye" },
+        { FLASH_REDEYE_ON, "Red eye On" },
+        { FLASH_REDEYE_SYNC, "Red Eye Sync" },
+        { FLASH_REDEYE_REAR, "Red Eye Rear" },
+        { FLASH_SLOW_SYNC, "Slow Sync" },
+        { FLASH_REAR_SYNC, "Rear Sync" },
+        { FLASH_COMMANDER, "Commander" },
+        { FLASH_DISABLE, "Disabled" },
+        { FLASH_ENABLE, "Enabled" },
+   }},
+   { property_self_timer, {
+        { TIMER_OFF, "Off" },
+        { TIMER_1SEC, "1 Second" },
+        { TIMER_2SEC, "2 Seconds" },
+        { TIMER_5SEC, "5 Seconds" },
+        { TIMER_10SEC, "10 Seconds" },
+   }},
+   { property_film_simulation, {
+        { FILM_SIMULATION_PROVIA, "Provia" },
+        { FILM_SIMULATION_VELVIA, "Velvia" },
+        { FILM_SIMULATION_ASTIA, "Astia" },
+        { FILM_SIMULATION_MONOCHROME, "Monochrome" },
+        { FILM_SIMULATION_SEPIA, "Sepia" },
+        { FILM_SIMULATION_PRO_NEG_HI, "Pro-Neg Hi" },
+        { FILM_SIMULATION_PRO_NEG_STD, "Pro-Neg Standard" },
+        { FILM_SIMULATION_MONOCHROME_Y_FILTER, "Monochrome Y-filter" },
+        { FILM_SIMULATION_MONOCHROME_R_FILTER, "Monochrome R-filter" },
+        { FILM_SIMULATION_MONOCHROME_G_FILTER, "Monochrome G-filter" },
+        { FILM_SIMULATION_CLASSIC_CHROME, "Classic Chrome" },
+        { FILM_SIMULATION_ACROS, "Acros" },
+        { FILM_SIMULATION_ACROS_Y, "Acros Y" },
+        { FILM_SIMULATION_ACROS_R, "Acros R" },
+        { FILM_SIMULATION_ACROS_G, "Acros G" },
+        { FILM_SIMULATION_ETERNA, "Eterna" },
+   }},
+   { property_image_format, {
+        { IMAGE_FORMAT_FINE, "JPEG Fine"},
+        { IMAGE_FORMAT_NORMAL, "JPEG Normal"},
+        { IMAGE_FORMAT_FINE_RAW , "RAW + JPEG Fine"},
+        { IMAGE_FORMAT_NORMAL_RAW, "RAW + JPEG Normal"},
+   }},
+   { property_recmode_enable, {
+        { MOVIE_BUTTON_UNAVAILABLE, "Unavailable" },
+        { MOVIE_BUTTON_AVAILABLE, "Available" },
+   }},
+   { property_f_ss_control, {
+        { F_SS_CTRL_BOTH, "Aperture and ShutterSpeed adjustable"},
+        { F_SS_CTRL_F, "ShutterSpeed hit a min/max"},
+        { F_SS_CTRL_SS, "Aperture hit a min/max"},
+        { F_SS_CTRL_NONE, "ShutterSpeed and Aperture hit a min/max"},
+   }},
+   { property_focus_lock, {
+        { FOCUS_LOCK_OFF, "Off" },
+        { FOCUS_LOCK_ON, "On" },
+   }},
+   { property_device_error, {
+        { DEVICE_ERROR_NONE, "Status OK" },
+   }},
+   { property_image_aspect, {
+        { IMAGE_ASPECT_S_3x2, "Small 3:2"},
+        { IMAGE_ASPECT_S_16x9, "Small 16:9"},
+        { IMAGE_ASPECT_S_1x1, "Small 1:1"},
+        { IMAGE_ASPECT_M_3x2, "Medium 3:2"},
+        { IMAGE_ASPECT_M_16x9, "Medium 16:9"},
+        { IMAGE_ASPECT_M_1x1, "Medium 1:1"},
+        { IMAGE_ASPECT_L_3x2, "Large 3:2"},
+        { IMAGE_ASPECT_L_16x9, "Large 16:9"},
+        { IMAGE_ASPECT_L_1x1, "Large 1:1"},
+   }},
+   { property_battery_level, {
+        { BATTERY_CRITICAL, "Critical" },
+        { BATTERY_ONE_BAR, "One bar" },
+        { BATTERY_TWO_BAR, "Two bars" },
+        { BATTERY_FULL, "Full" },
+   }},
 };
-
-enum jpeg_size {
-  jpeg_size_s,
-  jpeg_size_m,
-  jpeg_size_l,
-};
-
-enum jpeg_aspect {
-  jpeg_aspect_3_by_2,
-  jpeg_aspect_16_by_9,
-  jpeg_aspect_1_by_1
-};
-
-struct image_settings {
-  image_format format;
-  jpeg_quality quality;
-  jpeg_size size;
-  jpeg_aspect aspect;
-  uint32_t space_on_sdcard;
-};
-std::string to_string(image_settings const& image);
 
 struct auto_focus_point {
+  auto_focus_point(uint32_t val) : x(val>>8), y(val) {}
   uint8_t x;
   uint8_t y;
 };
 std::string to_string(auto_focus_point const& focus_point);
+
+struct f_number {
+  f_number(uint32_t val) : value(val) {}
+  operator uint32_t() const { return value; }
+  uint32_t value = 0;
+};
+std::string to_string(f_number aperture);
 
 struct iso_level {
   iso_level(uint32_t val) : value(val) {}
@@ -67,135 +236,7 @@ struct shutter_speed {
 };
 char const* to_string(shutter_speed speed);
 
-enum shutter_type {
-  mechanical_shutter,
-  electronic_shutter
-};
-char const* to_string(shutter_type shutter);
-
-struct shutter_settings {
-  shutter_speed speed { 0 };
-  shutter_type type;
-};
-
-enum focus_mode {
-  manual_focus = 1,
-  single_autofocus = 32769,
-  continuous_autofocus = 32770
-};
-char const* to_string(focus_mode mode);
-
-enum timer_mode {
-  timer_off = 0,
-  timer_1sec = 1,
-  timer_2sec = 2,
-  timer_5sec = 3,
-  timer_10sec = 4,
-};
-char const* to_string(timer_mode mode);
-
-enum film_simulation_mode {
-  film_simulation_provia = 1,
-  film_simulation_velvia = 2,
-  film_simulation_astia = 3,
-  film_simulation_monochrome = 4,
-  film_simulation_sepia = 5,
-  film_simulation_pro_neg_hi = 6,
-  film_simulation_pro_neg_std = 7,
-  film_simulation_monochrome_y_filter = 8,
-  film_simulation_monochrome_r_filter = 9,
-  film_simulation_monochrome_g_filter = 10,
-  film_simulation_classic_chrome = 11,
-  film_simulation_acros = 12,
-  film_simulation_acros_y = 13,
-  film_simulation_acros_r = 14,
-  film_simulation_acros_g = 15,
-  film_simulation_eterna = 16
-};
-
-char const* to_string(film_simulation_mode film_simulation);
-
-enum white_balance_mode {
-  white_balance_auto = 2,
-  white_balance_fine = 4,
-  white_balance_incandescent = 6,
-  white_balance_fluorescent_1 = 0x8001,
-  white_balance_fluorescent_2 = 0x8002,
-  white_balance_fluorescent_3 = 0x8003,
-  white_balance_shade = 0x8006,
-  white_balance_underwater = 0x800A,
-  white_balance_temperature = 0x800B,
-  white_balance_custom = 0x800C 
-};
-
-char const* to_string(white_balance_mode white_balance);
-bool parse_white_balance_mode(uint16_t const value, white_balance_mode& mode);
-
-enum recording_mode {
-  movie_button_unavailable = 0,
-  movie_button_available = 1
-};
-char const* to_string(recording_mode mode);
-
-enum shooting_mode {
-  manual_mode = 1,
-  program_mode = 2,
-  aperture_priority_mode = 3,
-  shutter_priority_mode = 4,
-  auto_mode = 6
-};
-char const* to_string(recording_mode mode);
-
-enum battery_level {
-  critical_battery = 1,
-  one_bar_battery = 2,
-  two_bar_battery = 3,
-  full_battery = 4
-};
-char const* to_string(battery_level level);
-
-enum flash_mode {
-  flash_auto = 1,
-  flash_off = 2,
-  flash_fill = 3,
-  flash_redeye_auto = 4,
-  flash_redeye_fill = 5,
-  flash_external_sync = 6,
-  flash_on = 32769,
-  flash_redeye = 32770,
-  flash_redeye_on = 32771,
-  flash_redeye_sync = 32772,
-  flash_redeye_rear = 32773,
-  flash_slow_sync = 32774,
-  flash_rear_sync = 32775,
-  flash_commander = 32776,
-  flash_disable = 32777,
-  flash_enable = 32778 
-};
-char const* to_string(flash_mode flash);
-
-struct camera_settings {
-  uint32_t iso;
-  uint32_t movie_iso;
-  uint32_t device_error;
-  uint32_t focus_lock;
-  uint32_t movie_hd_remaining_time;
-  int32_t exposure_compensation;
-  white_balance_mode white_balance;
-  film_simulation_mode film_simulation;
-  auto_focus_point focus_point;
-  image_settings image;
-  aperture_f_number aperture;
-  shutter_settings shutter;
-  battery_level battery;
-  flash_mode flash;
-  timer_mode self_timer;
-  focus_mode focus;
-  recording_mode recording;
-  shooting_mode shooting;
-};
-
-void print(camera_settings const& settings);
+void print(std::map<property_codes, uint32_t> const& settings);
 
 double ss_to_microsec(uint32_t raw_speed);
 }  // namespace fcwt

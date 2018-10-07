@@ -20,7 +20,7 @@ void terminate_control_connection(native_socket sockfd);
 
 bool shutter(native_socket const sockfd, native_socket const sockfd2, const char* thumbnail = 0);
 
-bool current_settings(native_socket sockfd, camera_settings& settings);
+bool current_settings(native_socket sockfd, std::map<property_codes, uint32_t>& settings);
 
 enum fnumber_update_direction {
     fnumber_increment,
@@ -37,13 +37,8 @@ enum exp_update_direction {
     exp_decrement
 };
 
-bool update_setting(native_socket sockfd, iso_level iso);
-bool update_setting(native_socket sockfd, image_settings image);
-bool update_setting(native_socket sockfd, film_simulation_mode film);
+bool update_setting(native_socket sockfd, property_codes code, uint32_t value);
 bool update_setting(native_socket sockfd, auto_focus_point point);
-bool update_setting(native_socket sockfd, white_balance_mode white_balance);
-bool update_setting(native_socket sockfd, flash_mode flash);
-bool update_setting(native_socket sockfd, timer_mode timer);
 bool update_setting(native_socket sockfd, fnumber_update_direction dir);
 bool update_setting(native_socket sockfd, ss_update_direction dir);
 bool update_setting(native_socket sockfd, exp_update_direction dir);

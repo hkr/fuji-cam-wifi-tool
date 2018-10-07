@@ -265,39 +265,15 @@ std::vector<capability> parse_camera_caps(void const* data, size_t const size) {
 
 }  // namespace
 
-bool update_setting(native_socket sockfd, iso_level iso) {
+bool update_setting(native_socket sockfd, property_codes code, uint32_t value) {
   if (sockfd <= 0) return false;
-  auto const msg_1 =
-      make_static_message(message_type::two_part, 0x2A, 0xD0, 0x00, 0x00);
-  auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(iso));
-  return fuji_twopart_message(sockfd, msg_1, msg_2);
-}
 
-bool update_setting(native_socket sockfd, image_settings image) {
-  return false;
-}
+  auto const msg_type = message_type::two_part;
+  auto const msg_code = make_byte_array(static_cast<uint32_t>(code));
+  auto const msg_value = make_byte_array(value);
+  auto const msg_1 = make_static_message(msg_type, msg_code);
+  auto const msg_2 = make_static_message_followup(msg_1, msg_value);
 
-bool update_setting(native_socket sockfd, film_simulation_mode film) {
-  if (sockfd <= 0) return false;
-  auto const msg_1 =
-    make_static_message(message_type::two_part, 0x01, 0xd0, 0x00, 0x00);
-  auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(static_cast<uint16_t>(film)));
-  return fuji_twopart_message(sockfd, msg_1, msg_2);
-}
-
-bool update_setting(native_socket sockfd, flash_mode flash) {
-  if (sockfd <= 0) return false;
-  auto const msg_1 =
-    make_static_message(message_type::two_part, 0x0c, 0x50, 0x00, 0x00);
-  auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(static_cast<uint16_t>(flash)));
-  return fuji_twopart_message(sockfd, msg_1, msg_2);
-}
-
-bool update_setting(native_socket sockfd, timer_mode timer) {
-  if (sockfd <= 0) return false;
-  auto const msg_1 =
-    make_static_message(message_type::two_part, 0x12, 0x50, 0x00, 0x00);
-  auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(static_cast<uint16_t>(timer)));
   return fuji_twopart_message(sockfd, msg_1, msg_2);
 }
 
@@ -310,16 +286,6 @@ bool update_setting(native_socket sockfd, auto_focus_point point) {
 bool unlock_focus(native_socket sockfd) {
   if (sockfd <= 0) return false;
   return fuji_message(sockfd, make_static_message(message_type::focus_unlock));
-}
-
-bool update_setting(native_socket sockfd, white_balance_mode white_balance) {
-  if (sockfd <= 0) return false;
-  //10:00:00:00 01:00:16:10 68:00:00:00 05:50:00:00
-  //0e:00:00:00 02:00:16:10 68:00:00:00 06:80
-  auto const msg_1 =
-    make_static_message(message_type::two_part, 0x05, 0x50, 0x00, 0x00);
-  auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(static_cast<uint16_t>(white_balance)));
-  return fuji_twopart_message(sockfd, msg_1, msg_2);
 }
 
 bool update_setting(native_socket sockfd, fnumber_update_direction dir) {
@@ -460,85 +426,7 @@ bool shutter(native_socket const sockfd, native_socket const sockfd2, const char
   return success;
 }
 
-static bool parse_image_settings(uint32_t const format,
-                                 uint32_t const size_aspect,
-                                 uint32_t const image_space_on_sdcard,
-                                 image_settings& image) {
-  switch (format) {
-    default:
-      return false;
-    case 2:
-      image.format = image_format_jpeg;
-      image.quality = jpeg_quality_fine;
-    case 3:
-      image.format = image_format_jpeg;
-      image.quality = jpeg_quality_normal;
-    case 4:
-      image.format = image_format_raw_and_jpeg;
-      image.quality = jpeg_quality_fine;
-      break;
-    case 5:
-      image.format = image_format_raw_and_jpeg;
-      image.quality = jpeg_quality_normal;
-      break;
-  }
-
-  switch (size_aspect) {
-    default:
-      return false;
-    case 2:
-      image.size = jpeg_size_s;
-      image.aspect = jpeg_aspect_3_by_2;
-      break;
-    case 3:
-      image.size = jpeg_size_s;
-      image.aspect = jpeg_aspect_16_by_9;
-      break;
-    case 4:
-      image.size = jpeg_size_s;
-      image.aspect = jpeg_aspect_1_by_1;
-      break;
-    case 6:
-      image.size = jpeg_size_m;
-      image.aspect = jpeg_aspect_3_by_2;
-      break;
-    case 7:
-      image.size = jpeg_size_m;
-      image.aspect = jpeg_aspect_16_by_9;
-      break;
-    case 8:
-      image.size = jpeg_size_m;
-      image.aspect = jpeg_aspect_1_by_1;
-      break;
-    case 10:
-      image.size = jpeg_size_l;
-      image.aspect = jpeg_aspect_3_by_2;
-      break;
-    case 11:
-      image.size = jpeg_size_l;
-      image.aspect = jpeg_aspect_16_by_9;
-      break;
-    case 12:
-      image.size = jpeg_size_l;
-      image.aspect = jpeg_aspect_1_by_1;
-      break;
-  }
-
-  image.space_on_sdcard = image_space_on_sdcard;
-
-  return true;
-}
-
-static bool parse_auto_focus(uint32_t const autofocus_point,
-                             auto_focus_point& focus_point) {
-  focus_point.x = static_cast<uint8_t>((autofocus_point >> 8) & 0xff);
-  focus_point.y = static_cast<uint8_t>((autofocus_point >> 0) & 0xff);
-  return true;
-}
-
-bool current_settings(native_socket sockfd, camera_settings& settings) {
-  settings = camera_settings();
-
+bool current_settings(native_socket sockfd, std::map<property_codes, uint32_t>& settings) {
   auto const msg = generate<status_request_message>();
   fuji_send(sockfd, &msg, sizeof(msg));
   uint8_t buf[1024];
@@ -555,114 +443,22 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
   memcpy(&numSettings, ptr, 2);
   ptr += 2;
 
-  uint32_t image_format = 0;
-  uint32_t image_size_aspect = 0;
-  uint32_t image_space_on_sdcard = 0;
-
-  for (uint16_t i = 0; i < numSettings; ++i)
-  {
+  for (uint16_t i = 0; i < numSettings; ++i) {
     property_codes code;
     uint32_t value;
     uint8_t* data = ptr + i * 6;
     memcpy(&code, data, 2);
     memcpy(&value, data + 2, 4);
 
+    settings[code] = value;
+
     std::string log_setting = std::string("Setting msg: ").append(hex_format(&code, 2))
                                                           .append(hex_format(&value, 4));
+    if (! property_strings.count(code))
+      code = property_unknown;
+
     log(LOG_DEBUG2, log_setting.append(property_strings[code]));
-
-    switch(code) {
-      case property_white_balance: {
-        settings.white_balance = static_cast<white_balance_mode>(value);
-      } break;
-
-      case property_aperture: {
-        settings.aperture.value = value;
-      } break;
-
-      case property_focus_mode: {
-        // focus mode, S-AF: 0x8001, C-AF: 0x8002, MF: 1
-        settings.focus = static_cast<focus_mode>(value);
-      } break;
-
-      case property_flash: {
-        settings.flash = static_cast<flash_mode>(value);
-      } break;
-
-      case property_shooting_mode: {
-        settings.shooting = static_cast<shooting_mode>(value);
-      } break;
-
-      case property_exposure_compensation: {
-        settings.exposure_compensation = static_cast<int16_t>(static_cast<uint16_t>(value));
-      } break;
-
-      case property_self_timer: {
-        // self-timer, 0 = disabled, 2 = 2s, 4 = 10s
-        settings.self_timer = static_cast<timer_mode>(value);
-      } break;
-
-      case property_film_simulation: {
-        settings.film_simulation = static_cast<film_simulation_mode>(value);
-      } break;
-
-      case property_image_format: {
-        image_format = value;
-      } break;
-
-      case property_shutter_type: {
-        // shutter type when shutter is in auto mode, 0 = MS+ES, 1 = ES
-        settings.shutter.type = value ? electronic_shutter : mechanical_shutter;
-      } break;
-
-      case property_iso: {
-        settings.iso = value;
-      } break;
-
-      case property_movie_iso: {
-        settings.movie_iso = value;
-      } break;
-
-      case property_focus_point: {
-        parse_auto_focus(value, settings.focus_point);
-      } break;
-
-      case property_focus_lock: {
-        // focus lock (S1_LOCK_COLOR)
-        settings.focus_lock = value;
-      } break;
-
-      case property_device_error: {
-        settings.device_error = value;
-      } break;
-
-      case property_image_space_sd: {
-        image_space_on_sdcard = value;
-      } break;
-
-      case property_movie_remaining_time: {
-        settings.movie_hd_remaining_time = value;
-      } break;
-
-      case property_shutter_speed: {
-        // shutter speed; 4 bytes; MSB is a flag to indicate whether this
-        // is a subsecond value (i.e. 1/Ns)
-        settings.shutter.speed = value;
-      } break;
-
-      case property_image_aspect: {
-        image_size_aspect = value;
-      } break;
-
-      case property_battery_level: {
-        // battery level, 4: full (3 bars), 3: mid (2 bars), 2: min (1 bar), 1: critical
-        settings.battery = static_cast<battery_level>(value);
-      } break;
-    }
   }
-
-  parse_image_settings(image_format, image_size_aspect, 
-          image_space_on_sdcard, settings.image);
 
   receivedBytes = fuji_receive(sockfd, buf);
   log(LOG_DEBUG2, std::string("received bytes@@@").append(hex_format(buf, receivedBytes)));

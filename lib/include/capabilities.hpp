@@ -10,7 +10,7 @@ namespace fcwt {
 
 const uint16_t capability_max_values = 32;
 
-enum property_codes {
+enum property_codes: uint16_t {
   property_white_balance         = 0x5005,
   property_aperture              = 0x5007,
   property_focus_mode            = 0x500a,
@@ -21,7 +21,7 @@ enum property_codes {
   property_film_simulation       = 0xd001,
   property_image_format          = 0xd018,
   property_recmode_enable        = 0xd019,
-  property_shutter_type          = 0xd028,
+  property_f_ss_control          = 0xd028,
   property_iso                   = 0xd02a,
   property_movie_iso             = 0xd02b,
   property_focus_point           = 0xd17c,
@@ -46,7 +46,7 @@ static std::map<property_codes, const char *> property_strings = {
    {property_film_simulation, "Film Simulation"},
    {property_image_format, "Image Format"},
    {property_recmode_enable, "Recording Mode"},
-   {property_shutter_type, "Shutter Type"},
+   {property_f_ss_control, "Aperture/ShutterSpeed ctrl"},
    {property_iso, "ISO"},
    {property_movie_iso, "Movie ISO"},
    {property_focus_point, "Focus Point"},
@@ -57,7 +57,7 @@ static std::map<property_codes, const char *> property_strings = {
    {property_shutter_speed, "Shutter Speed"},
    {property_image_aspect, "Image Aspect"},
    {property_battery_level, "Battery Level"},
-   {property_unknown, "Unknown Property"}
+   {property_unknown, "== Unknown Property =="}
 };
 
 struct capability {
@@ -73,12 +73,6 @@ struct capability {
   uint16_t count = 0;
   uint32_t values[capability_max_values] = {0};
 };
-
-struct aperture_f_number {
-  uint32_t value = 0;
-};
-
-std::string to_string(aperture_f_number aperture);
 
 void print(std::vector<capability> const& caps);
 

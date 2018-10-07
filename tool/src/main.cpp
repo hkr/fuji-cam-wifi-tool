@@ -185,6 +185,7 @@ int main(int const argc, char const* argv[]) {
   std::thread imageStreamCVThread;
 #endif
   std::vector<capability> caps;
+  std::map<property_codes, uint32_t> settings;
 
   std::string line;
   while (getline(line)) {
@@ -202,7 +203,6 @@ int main(int const argc, char const* argv[]) {
           else {
             log(LOG_INFO, "Received camera capabilities");
             print(caps);
-            camera_settings settings;
             if (current_settings(sockfd, settings)) {
               log(LOG_INFO, "Received camera settings");
               print(settings);
@@ -231,7 +231,6 @@ int main(int const argc, char const* argv[]) {
 #endif
 
       case command::info: {
-        camera_settings settings;
         if (current_settings(sockfd, settings))
           print(settings);
       } break;
@@ -240,8 +239,7 @@ int main(int const argc, char const* argv[]) {
         if (splitLine.size() > 1) {
           unsigned long iso = std::stoul(splitLine[1], 0, 0);
           log(LOG_DEBUG, string_format("%s(%lu)", splitLine[0].c_str(), iso));
-          if (update_setting(sockfd, iso_level(iso))) {
-            camera_settings settings;
+          if (update_setting(sockfd, property_iso, iso)) {
             if (current_settings(sockfd, settings))
               print(settings);
           } else {
@@ -253,20 +251,19 @@ int main(int const argc, char const* argv[]) {
       case command::set_aperture: {
         if (splitLine.size() > 1) {
           uint32_t const aperture = static_cast<uint32_t>(std::stod(splitLine[1]) * 100.0);
-          camera_settings settings;
           if (aperture > 0 && aperture < 6400 && 
-              current_settings(sockfd, settings) && settings.aperture.value > 0 &&
-              aperture != settings.aperture.value) {
-            const fnumber_update_direction direction = aperture < settings.aperture.value ? fnumber_decrement : fnumber_increment;
+              current_settings(sockfd, settings) && settings[property_aperture] > 0 &&
+              aperture != settings[property_aperture]) {
+            const fnumber_update_direction direction = aperture < settings[property_aperture] ? fnumber_decrement : fnumber_increment;
             uint32_t last_aperture = 0;
             do {
-              last_aperture = settings.aperture.value;
+              last_aperture = settings[property_aperture];
               if (!update_setting(sockfd, direction))
                 break;
             } while(current_settings(sockfd, settings) && 
-                    settings.aperture.value != last_aperture && 
-                    aperture != settings.aperture.value &&
-                    direction == (aperture < settings.aperture.value ? fnumber_decrement : fnumber_increment));
+                    settings[property_aperture] != last_aperture && 
+                    aperture != settings[property_aperture] &&
+                    direction == (aperture < settings[property_aperture] ? fnumber_decrement : fnumber_increment));
             print(settings);
           } 
         }
@@ -278,7 +275,6 @@ int main(int const argc, char const* argv[]) {
           log(LOG_DEBUG, string_format("%s(%i)", splitLine[0].c_str(), aperture_stops));
           if (aperture_stops != 0) {
             if (update_setting(sockfd, aperture_stops < 0 ? fnumber_decrement : fnumber_increment)) {
-              camera_settings settings;
               if (current_settings(sockfd, settings))
                 print(settings);
             } else {
@@ -294,7 +290,6 @@ int main(int const argc, char const* argv[]) {
           log(LOG_DEBUG, string_format("%s(%i)", splitLine[0].c_str(), shutter_stops));
           if (shutter_stops != 0) {
             if (update_setting(sockfd, shutter_stops < 0 ? ss_decrement : ss_increment)) {
-              camera_settings settings;
               if (current_settings(sockfd, settings))
                 print(settings);
             } else {
@@ -310,19 +305,18 @@ int main(int const argc, char const* argv[]) {
           int res = std::sscanf(splitLine[1].c_str(), "%lf/%lf", &nom, &denom);
           if (res > 0) {
             double new_speed = (res == 1 ? nom : nom / denom) * 1000000.0;
-            camera_settings settings;
-            if (current_settings(sockfd, settings) && settings.shutter.speed > 0 &&
-                new_speed != ss_to_microsec(settings.shutter.speed)) {
-              const ss_update_direction direction = new_speed < ss_to_microsec(settings.shutter.speed) ? ss_increment : ss_decrement;
+            if (current_settings(sockfd, settings) && settings[property_shutter_speed] > 0 &&
+                new_speed != ss_to_microsec(settings[property_shutter_speed])) {
+              const ss_update_direction direction = new_speed < ss_to_microsec(settings[property_shutter_speed]) ? ss_increment : ss_decrement;
               uint64_t last_speed = 0;
               do {
-                last_speed = ss_to_microsec(settings.shutter.speed);
+                last_speed = ss_to_microsec(settings[property_shutter_speed]);
                 if (!update_setting(sockfd, direction))
                   break;
               } while(current_settings(sockfd, settings) &&
-                      ss_to_microsec(settings.shutter.speed) != last_speed &&
-                      new_speed != ss_to_microsec(settings.shutter.speed) &&
-                      direction == (new_speed < ss_to_microsec(settings.shutter.speed) ? ss_increment : ss_decrement));
+                      ss_to_microsec(settings[property_shutter_speed]) != last_speed &&
+                      new_speed != ss_to_microsec(settings[property_shutter_speed]) &&
+                      direction == (new_speed < ss_to_microsec(settings[property_shutter_speed]) ? ss_increment : ss_decrement));
               print(settings);
             }
           }
@@ -335,7 +329,6 @@ int main(int const argc, char const* argv[]) {
           log(LOG_DEBUG, string_format("%s(%i)", splitLine[0].c_str(), direction));
           if (direction != 0) {
             if (update_setting(sockfd, direction < 0 ? exp_decrement : exp_increment)) {
-              camera_settings settings;
               if (current_settings(sockfd, settings))
                 print(settings);
             } else {
@@ -347,19 +340,18 @@ int main(int const argc, char const* argv[]) {
 
       case command::set_exposure_compensation: {
         if (splitLine.size() > 1) {
-          int32_t const exp = static_cast<int32_t>(std::stod(splitLine[1]) * 1000.0);
-          camera_settings settings;
-          if (current_settings(sockfd, settings) && exp != settings.exposure_compensation) {
-            const exp_update_direction direction = exp < settings.exposure_compensation ? exp_decrement : exp_increment;
-            int32_t last_exp = 0;
+          uint32_t const exp = static_cast<uint32_t>(std::stod(splitLine[1]) * 1000.0);
+          if (current_settings(sockfd, settings) && exp != settings[property_exposure_compensation]) {
+            const exp_update_direction direction = exp < settings[property_exposure_compensation] ? exp_decrement : exp_increment;
+            uint32_t last_exp = 0;
             do {
-              last_exp = settings.exposure_compensation;
+              last_exp = settings[property_exposure_compensation];
               if (!update_setting(sockfd, direction))
                 break;
             } while(current_settings(sockfd, settings) && 
-                    settings.exposure_compensation != last_exp && 
-                    exp != settings.exposure_compensation &&
-                    direction == (exp < settings.exposure_compensation ? exp_decrement : exp_increment));
+                    settings[property_exposure_compensation] != last_exp && 
+                    exp != settings[property_exposure_compensation] &&
+                    direction == (exp < settings[property_exposure_compensation] ? exp_decrement : exp_increment));
             print(settings);
           } 
         }
@@ -367,27 +359,23 @@ int main(int const argc, char const* argv[]) {
 
       case command::white_balance: {
         if (splitLine.size() > 1) {
-          int const wbvalue = std::stoi(splitLine[1], 0, 0);
-          log(LOG_DEBUG, string_format("%s(%d)", splitLine[0].c_str(), wbvalue));
-          white_balance_mode wb;
-          if (parse_white_balance_mode(wbvalue, wb) && update_setting(sockfd, wb)) {
-            camera_settings settings;
+          uint32_t const value = std::stoi(splitLine[1], 0, 0);
+          log(LOG_DEBUG, string_format("%s(%d)", splitLine[0].c_str(), value));
+          if (property_value_strings[property_white_balance].count(value) && update_setting(sockfd, property_white_balance, value)) {
             if (current_settings(sockfd, settings))
               print(settings);
           } else {
-            log(LOG_ERROR, string_format("Failed to set white_balance %d", wbvalue));
+            log(LOG_ERROR, string_format("Failed to set white_balance %d", value));
           }
         }
       } break;
 
       case command::film_simulation: {
         if (splitLine.size() > 1) {
-          int const value = std::stoi(splitLine[1], 0, 0);
-          film_simulation_mode fs = static_cast<film_simulation_mode>(value);
+          uint32_t const value = std::stoi(splitLine[1], 0, 0);
           log(LOG_DEBUG, string_format("%s (%d)", splitLine[0].c_str(), value));
 
-          if (update_setting(sockfd, fs)) {
-            camera_settings settings;
+          if (property_value_strings[property_film_simulation].count(value) && update_setting(sockfd, property_film_simulation, value)) {
             if (current_settings(sockfd, settings))
               print(settings);
           } else {
@@ -398,12 +386,10 @@ int main(int const argc, char const* argv[]) {
 
       case command::flash: {
         if (splitLine.size() > 1) {
-          int const value = std::stoi(splitLine[1], 0, 0);
-          flash_mode flash = static_cast<flash_mode>(value);
+          uint32_t const value = std::stoi(splitLine[1], 0, 0);
           log(LOG_DEBUG, string_format("%s (%d)", splitLine[0].c_str(), value));
 
-          if (update_setting(sockfd, flash)) {
-            camera_settings settings;
+          if (property_value_strings[property_flash].count(value) && update_setting(sockfd, property_flash, value)) {
             if (current_settings(sockfd, settings))
               print(settings);
           } else {
@@ -414,12 +400,10 @@ int main(int const argc, char const* argv[]) {
 
       case command::timer: {
         if (splitLine.size() > 1) {
-          int const value = std::stoi(splitLine[1], 0, 0);
-          timer_mode timer = static_cast<timer_mode>(value);
+          uint32_t const value = std::stoi(splitLine[1], 0, 0);
           log(LOG_DEBUG, string_format("%s (%d)", splitLine[0].c_str(), value));
 
-          if (update_setting(sockfd, timer)) {
-            camera_settings settings;
+          if (property_value_strings[property_self_timer].count(value) && update_setting(sockfd, property_self_timer, value)) {
             if (current_settings(sockfd, settings))
               print(settings);
           } else {
@@ -430,7 +414,7 @@ int main(int const argc, char const* argv[]) {
 
       case command::focus_point: {
         if (splitLine.size() == 3) {
-          auto_focus_point point;
+          auto_focus_point point = 0;
           point.x = std::stoi(splitLine[1], 0, 0);
           point.y = std::stoi(splitLine[2], 0, 0);
           if (point.x * point.y <= 0) {
@@ -439,7 +423,6 @@ int main(int const argc, char const* argv[]) {
           }
 
           if (update_setting(sockfd, point)) {
-            camera_settings settings;
             if (current_settings(sockfd, settings))
               print(settings);
           } else {
@@ -451,7 +434,6 @@ int main(int const argc, char const* argv[]) {
       case command::unlock_focus: {
         if (splitLine.size() == 1) {
           if (unlock_focus(sockfd)) {
-            camera_settings settings;
             if (current_settings(sockfd, settings))
               print(settings);
           } else {
@@ -461,7 +443,6 @@ int main(int const argc, char const* argv[]) {
       } break;
 
       case command::current_settings: {
-        camera_settings settings;
         if (current_settings(sockfd, settings))
           print(settings);
         else

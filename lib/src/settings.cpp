@@ -7,9 +7,6 @@
 
 namespace fcwt {
 
-#define CASE_RETURN_ENUM_TO_STRING(x) case x: return #x;
-#define CASE_ASSIGN_AND_BREAK(r, x) case x: r = x; break
-
 std::string to_string(iso_level iso) {
     auto const lvl = iso.value;
     char const* flag = "";
@@ -23,210 +20,27 @@ std::string to_string(iso_level iso) {
     else if (lvl & iso_flag_emulated)
         flag = "(emulated)";
 
-    return string_format("%12d %s", lvl & iso_value_mask, flag);
+    return string_format("%6d %s", lvl & iso_value_mask, flag);
 }
 
 char const* to_string(shutter_speed speed) {
-    bool subsecond = bool(speed.value & shutter_flag_subsecond);
-    double out = static_cast<double>(speed.value & shutter_value_mask) / 1000.0;
+    bool subsecond = bool(speed & shutter_flag_subsecond);
+    double out = static_cast<double>(speed & shutter_value_mask) / 1000.0;
     if (subsecond) 
         return string_format("1/%.1fs", out).c_str();
     else
         return string_format("%.1fs", out).c_str();
 }
 
-char const* to_string(image_format const format) {
-  switch (format) {
-    CASE_RETURN_ENUM_TO_STRING(image_format_jpeg);
-    CASE_RETURN_ENUM_TO_STRING(image_format_raw_and_jpeg);
-  }
-  FCWT_UNREACHABLE;
-}
-
-char const* to_string(jpeg_quality const quality) {
-  switch (quality) {
-    CASE_RETURN_ENUM_TO_STRING(jpeg_quality_fine);
-    CASE_RETURN_ENUM_TO_STRING(jpeg_quality_normal);
-  }
-  FCWT_UNREACHABLE;
-}
-
-char const* to_string(jpeg_size const size) {
-  switch (size) {
-    CASE_RETURN_ENUM_TO_STRING(jpeg_size_s);
-    CASE_RETURN_ENUM_TO_STRING(jpeg_size_m);
-    CASE_RETURN_ENUM_TO_STRING(jpeg_size_l);
-  }
-  FCWT_UNREACHABLE;
-}
-
-char const* to_string(jpeg_aspect const aspect) {
-  switch (aspect) {
-    CASE_RETURN_ENUM_TO_STRING(jpeg_aspect_3_by_2);
-    CASE_RETURN_ENUM_TO_STRING(jpeg_aspect_16_by_9);
-    CASE_RETURN_ENUM_TO_STRING(jpeg_aspect_1_by_1);
-  }
-  FCWT_UNREACHABLE;
-}
-
-char const* to_string(film_simulation_mode const film_simulation) {
-  switch (film_simulation) {
-    CASE_RETURN_ENUM_TO_STRING(film_simulation_provia);
-    CASE_RETURN_ENUM_TO_STRING(film_simulation_velvia);
-    CASE_RETURN_ENUM_TO_STRING(film_simulation_astia);
-    CASE_RETURN_ENUM_TO_STRING(film_simulation_monochrome);
-    CASE_RETURN_ENUM_TO_STRING(film_simulation_sepia);
-    CASE_RETURN_ENUM_TO_STRING(film_simulation_pro_neg_hi);
-    CASE_RETURN_ENUM_TO_STRING(film_simulation_pro_neg_std);
-    CASE_RETURN_ENUM_TO_STRING(film_simulation_monochrome_y_filter);
-    CASE_RETURN_ENUM_TO_STRING(film_simulation_monochrome_r_filter);
-    CASE_RETURN_ENUM_TO_STRING(film_simulation_monochrome_g_filter);
-    CASE_RETURN_ENUM_TO_STRING(film_simulation_classic_chrome);
-    CASE_RETURN_ENUM_TO_STRING(film_simulation_acros);
-    CASE_RETURN_ENUM_TO_STRING(film_simulation_acros_y);
-    CASE_RETURN_ENUM_TO_STRING(film_simulation_acros_r);
-    CASE_RETURN_ENUM_TO_STRING(film_simulation_acros_g);
-    CASE_RETURN_ENUM_TO_STRING(film_simulation_eterna);
-  }
-  FCWT_UNREACHABLE;
-}
-
-char const* to_string(shutter_type shutter)
-{
-  switch (shutter) {
-    CASE_RETURN_ENUM_TO_STRING(mechanical_shutter);
-    CASE_RETURN_ENUM_TO_STRING(electronic_shutter);
-  }
-  FCWT_UNREACHABLE; 
-}
-
-char const* to_string(recording_mode mode)
-{
-  switch (mode) {
-    CASE_RETURN_ENUM_TO_STRING(movie_button_unavailable);
-    CASE_RETURN_ENUM_TO_STRING(movie_button_available);
-  }
-  FCWT_UNREACHABLE; 
-}
-
-char const* to_string(shooting_mode mode)
-{
-  switch (mode) {
-    CASE_RETURN_ENUM_TO_STRING(manual_mode);
-    CASE_RETURN_ENUM_TO_STRING(program_mode);
-    CASE_RETURN_ENUM_TO_STRING(aperture_priority_mode);
-    CASE_RETURN_ENUM_TO_STRING(shutter_priority_mode);
-    CASE_RETURN_ENUM_TO_STRING(auto_mode);
-  }
-  FCWT_UNREACHABLE; 
-}
-
-char const* to_string(battery_level level)
-{
-  switch (level) {
-    CASE_RETURN_ENUM_TO_STRING(critical_battery);
-    CASE_RETURN_ENUM_TO_STRING(one_bar_battery);
-    CASE_RETURN_ENUM_TO_STRING(two_bar_battery);
-    CASE_RETURN_ENUM_TO_STRING(full_battery);
-  }
-  FCWT_UNREACHABLE; 
-}
-
-char const* to_string(focus_mode mode)
-{
-  switch (mode) {
-    CASE_RETURN_ENUM_TO_STRING(manual_focus);
-    CASE_RETURN_ENUM_TO_STRING(single_autofocus);
-    CASE_RETURN_ENUM_TO_STRING(continuous_autofocus);
-  }
-  FCWT_UNREACHABLE; 
-}
-
-char const* to_string(timer_mode mode)
-{
-  switch (mode) {
-    CASE_RETURN_ENUM_TO_STRING(timer_off);
-    CASE_RETURN_ENUM_TO_STRING(timer_1sec);
-    CASE_RETURN_ENUM_TO_STRING(timer_2sec);
-    CASE_RETURN_ENUM_TO_STRING(timer_5sec);
-    CASE_RETURN_ENUM_TO_STRING(timer_10sec);
-  }
-  FCWT_UNREACHABLE; 
-}
-
-char const* to_string(white_balance_mode const white_balance) {
-  switch (white_balance) {
-    CASE_RETURN_ENUM_TO_STRING(white_balance_auto);
-    CASE_RETURN_ENUM_TO_STRING(white_balance_custom);
-    CASE_RETURN_ENUM_TO_STRING(white_balance_temperature);
-    CASE_RETURN_ENUM_TO_STRING(white_balance_fine);
-    CASE_RETURN_ENUM_TO_STRING(white_balance_shade);
-    CASE_RETURN_ENUM_TO_STRING(white_balance_fluorescent_1);
-    CASE_RETURN_ENUM_TO_STRING(white_balance_fluorescent_2);
-    CASE_RETURN_ENUM_TO_STRING(white_balance_fluorescent_3);
-    CASE_RETURN_ENUM_TO_STRING(white_balance_incandescent);
-    CASE_RETURN_ENUM_TO_STRING(white_balance_underwater);
-  }
-  FCWT_UNREACHABLE;
-}
-
-char const* to_string(flash_mode const flash) {
-  switch (flash) {
-    CASE_RETURN_ENUM_TO_STRING(flash_auto);
-    CASE_RETURN_ENUM_TO_STRING(flash_off);
-    CASE_RETURN_ENUM_TO_STRING(flash_fill);
-    CASE_RETURN_ENUM_TO_STRING(flash_redeye_auto);
-    CASE_RETURN_ENUM_TO_STRING(flash_redeye_fill);
-    CASE_RETURN_ENUM_TO_STRING(flash_external_sync);
-    CASE_RETURN_ENUM_TO_STRING(flash_on);
-    CASE_RETURN_ENUM_TO_STRING(flash_redeye);
-    CASE_RETURN_ENUM_TO_STRING(flash_redeye_on);
-    CASE_RETURN_ENUM_TO_STRING(flash_redeye_sync);
-    CASE_RETURN_ENUM_TO_STRING(flash_redeye_rear);
-    CASE_RETURN_ENUM_TO_STRING(flash_slow_sync);
-    CASE_RETURN_ENUM_TO_STRING(flash_rear_sync);
-    CASE_RETURN_ENUM_TO_STRING(flash_commander);
-    CASE_RETURN_ENUM_TO_STRING(flash_disable);
-    CASE_RETURN_ENUM_TO_STRING(flash_enable);
-  }
-  FCWT_UNREACHABLE;
-}
-
-bool parse_white_balance_mode(uint16_t const value, white_balance_mode& mode) {
-  switch (value) {
-  default:
-    return false;
-    CASE_ASSIGN_AND_BREAK(mode, white_balance_auto);
-    CASE_ASSIGN_AND_BREAK(mode, white_balance_fine);
-    CASE_ASSIGN_AND_BREAK(mode, white_balance_custom);
-    CASE_ASSIGN_AND_BREAK(mode, white_balance_temperature);
-    CASE_ASSIGN_AND_BREAK(mode, white_balance_shade);
-    CASE_ASSIGN_AND_BREAK(mode, white_balance_fluorescent_1);
-    CASE_ASSIGN_AND_BREAK(mode, white_balance_fluorescent_2);
-    CASE_ASSIGN_AND_BREAK(mode, white_balance_fluorescent_3);
-    CASE_ASSIGN_AND_BREAK(mode, white_balance_incandescent);
-    CASE_ASSIGN_AND_BREAK(mode, white_balance_underwater);
-  }
-  return true;
-}
-
 std::string to_string(auto_focus_point const& focus_point) {
-  return string_format("auto_focus_point: (%d, %d)",
-                       static_cast<int>(focus_point.x),
-                       static_cast<int>(focus_point.y));
+  return string_format("(%d, %d)", focus_point.x, focus_point.y);
 }
 
-std::string to_string(image_settings const& image) {
-  return string_format(
-      "image_settings:\n"
-      "\t\timage_format = %s\n"
-      "\t\tjpeg_quality = %s\n"
-      "\t\tjpeg_size = %s\n"
-      "\t\tjpeg_aspect = %s\n"
-      "\t\tspace_on_sdcard = %u",
-      to_string(image.format), to_string(image.quality), to_string(image.size),
-      to_string(image.aspect),
-      static_cast<unsigned int>(image.space_on_sdcard));
+std::string to_string(f_number aperture) {
+  if (aperture)
+    return string_format("%.1ff", static_cast<double>(aperture) / 100.0);
+  else
+    return "Auto";
 }
 
 double ss_to_microsec(uint32_t raw_speed) {
@@ -237,30 +51,39 @@ double ss_to_microsec(uint32_t raw_speed) {
     return 1000.0 * static_cast<double>(raw_speed);
 }
 
-void print(camera_settings const& settings) {
-  iso_level iso = { settings.iso };
-  iso_level movie_iso = { settings.movie_iso };
-  shutter_speed speed { settings.shutter.speed };
+void print(std::map<property_codes, uint32_t> const& settings) {
+    printf("camera settings:\n");
 
-  printf("camera settings:\n");
-  printf("\tiso: %s\n", to_string(iso).c_str());
-  printf("\taperture: %s\n", to_string(settings.aperture).c_str());
-  printf("\tshutter_speed: %s\n", to_string(speed));
-  printf("\tshutter_type: %s\n", to_string(settings.shutter.type));
-  printf("\twhite_balance: %s\n", to_string(settings.white_balance));
-  printf("\tfilm_simulation_mode: %s\n", to_string(settings.film_simulation));
-  printf("\texposure_compensation: %.1f\n", static_cast<double>(settings.exposure_compensation) / 1000.0);
-  printf("\tbattery_level: %s\n", to_string(settings.battery));
-  printf("\tfocus_mode: %s\n", to_string(settings.focus));
-  printf("\t%s\n", to_string(settings.focus_point).c_str());
-  printf("\tfocus_lock: %s\n", settings.focus_lock ? "on":"off");
-  printf("\t%s\n", to_string(settings.image).c_str());
-  printf("\tmovie_iso: %s\n", to_string(movie_iso).c_str());
-  printf("\tflash: %s\n", to_string(settings.flash));
-  printf("\tself_timer: %s\n", to_string(settings.self_timer));
-  printf("\tmovie_hd_remaining_time: %ds\n", settings.movie_hd_remaining_time);
-  printf("\tshooting_mode: %s\n", to_string(settings.shooting));
-  printf("\tdevice_error: %d\n", settings.device_error);
+    for (auto const &s : settings) {
+        auto const &key   = s.first;
+        auto const &value = s.second;
+
+        if (! property_strings.count(key)) {
+            printf("\t%s: %s\n", property_strings[property_unknown], hex_format(&key, 2).c_str());
+            continue;
+        }
+
+        printf("\t%s: ", property_strings[key]);
+        if (key == property_iso || key == property_movie_iso) {
+            iso_level const iso { value };
+            printf("%s\n", to_string(iso).c_str());
+        } else if (key == property_shutter_speed) {
+            shutter_speed const spd { value };
+            printf(" %s\n", to_string(spd));
+        } else if (key == property_focus_point) {
+            auto_focus_point point = value;
+            printf("%s\n", to_string(point).c_str());
+        } else if (key == property_aperture) {
+            f_number aperture = value;
+            printf("%s\n", to_string(aperture).c_str());
+        } else if (key == property_exposure_compensation) {
+            printf("%.1f\n", static_cast<double>(value) / 1000.0);
+        } else if (key == property_movie_remaining_time || key == property_image_space_sd) {
+            printf("%d\n", value);
+        } else {
+            printf("%s\n", property_value_strings[key][value]);
+        }
+    }
 }
 
 }  // namespace fcwt
