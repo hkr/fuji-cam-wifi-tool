@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 2.8.11)
 
 add_subdirectory(linenoise-ng)
 
+execute_process(COMMAND git apply ../linenoise_linebreaks.patch
+                WORKING_DIRECTORY ../tool/linenoise-ng
+                ERROR_QUIET)
+
 project(fuji_cam_wifi_tool)
 file(GLOB fuji_cam_wifi_tool_sources ${CMAKE_CURRENT_SOURCE_DIR} src/*.cpp)
 file(GLOB fuji_cam_wifi_tool_headers ${CMAKE_CURRENT_SOURCE_DIR} src/*.hpp)
