@@ -78,7 +78,7 @@ void print(std::map<property_codes, uint32_t> const& settings) {
             f_number aperture = value;
             printf("%s\n", to_string(aperture).c_str());
         } else if (key == property_exposure_compensation) {
-            printf("%.1f\n", static_cast<double>(value) / 1000.0);
+            printf("%.1f\n", static_cast<double>(static_cast<int16_t>(value)) / 1000.0);
         } else if (key == property_movie_remaining_time || key == property_image_space_sd) {
             printf("%d\n", value);
         } else if (property_value_strings[key].count(value)) {
