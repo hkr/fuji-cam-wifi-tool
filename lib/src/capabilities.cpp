@@ -61,10 +61,14 @@ void print(std::vector<capability> const& caps) {
                    cap.property_code == property_white_balance) {
             for (uint16_t i = 0; i < cap.count; ++i) {
                 if (property_value_strings[cap.property_code].count(cap.values[i])) {
-                    PRINT_CAPABILITY(cap.values[i], property_value_strings[cap.property_code][cap.values[i]],
+                    std::string value_str = property_value_strings[cap.property_code][cap.values[i]];
+                    value_str.append(string_format(" (%d)", cap.values[i]));
+                    PRINT_CAPABILITY(cap.values[i], value_str.c_str(),
                                      cap.default_value, cap.current_value);
                 } else {
-                    PRINT_CAPABILITY(cap.values[i], property_value_strings[property_unknown][0],
+                    std::string value_str = property_value_strings[property_unknown][0];
+                    value_str.append(string_format(" (%d)", cap.values[i]));
+                    PRINT_CAPABILITY(cap.values[i], value_str.c_str(),
                                      cap.default_value, cap.current_value);
                 }
             }
