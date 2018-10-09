@@ -206,6 +206,9 @@ static std::map<property_codes, std::map<uint16_t, const char *>> property_value
         { BATTERY_TWO_BAR, "Two bars" },
         { BATTERY_FULL, "Full" },
    }},
+   { property_unknown, {
+        { 0, "== Unknown value! ==" },
+   }},
 };
 
 struct auto_focus_point {

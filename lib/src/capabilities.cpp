@@ -60,8 +60,13 @@ void print(std::vector<capability> const& caps) {
                    cap.property_code == property_recmode_enable ||
                    cap.property_code == property_white_balance) {
             for (uint16_t i = 0; i < cap.count; ++i) {
-                PRINT_CAPABILITY(cap.values[i], property_value_strings[cap.property_code][cap.values[i]],
-                                 cap.default_value, cap.current_value);
+                if (property_value_strings[cap.property_code].count(cap.values[i])) {
+                    PRINT_CAPABILITY(cap.values[i], property_value_strings[cap.property_code][cap.values[i]],
+                                     cap.default_value, cap.current_value);
+                } else {
+                    PRINT_CAPABILITY(cap.values[i], property_value_strings[property_unknown][0],
+                                     cap.default_value, cap.current_value);
+                }
             }
 
         } else if (cap.property_code == property_iso) {

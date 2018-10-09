@@ -59,7 +59,8 @@ void print(std::map<property_codes, uint32_t> const& settings) {
         auto const &value = s.second;
 
         if (! property_strings.count(key)) {
-            printf("\t%s: %s\n", property_strings[property_unknown], hex_format(&key, 2).c_str());
+            printf("\t%s (%s): %s\n", property_strings[property_unknown],
+                   hex_format(&key, 2).c_str(), hex_format(&value, 4).c_str());
             continue;
         }
 
@@ -80,8 +81,10 @@ void print(std::map<property_codes, uint32_t> const& settings) {
             printf("%.1f\n", static_cast<double>(value) / 1000.0);
         } else if (key == property_movie_remaining_time || key == property_image_space_sd) {
             printf("%d\n", value);
-        } else {
+        } else if (property_value_strings[key].count(value)) {
             printf("%s\n", property_value_strings[key][value]);
+        } else {
+            printf("%s\n", property_value_strings[property_unknown][0]);
         }
     }
 }
