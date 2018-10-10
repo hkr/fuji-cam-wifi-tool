@@ -24,6 +24,9 @@ std::string to_string(iso_level iso) {
 }
 
 char const* to_string(shutter_speed speed) {
+    if (static_cast<int32_t>(speed.value) == -1)
+        return "----";
+
     bool subsecond = bool(speed & shutter_flag_subsecond);
     double out = static_cast<double>(speed & shutter_value_mask) / 1000.0;
     if (subsecond) 
