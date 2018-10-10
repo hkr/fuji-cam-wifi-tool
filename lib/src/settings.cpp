@@ -37,7 +37,9 @@ std::string to_string(auto_focus_point const& focus_point) {
 }
 
 std::string to_string(f_number aperture) {
-  if (aperture)
+  if (aperture.value == 0xffff)
+    return "---";
+  else if (aperture)
     return string_format("%.1ff", static_cast<double>(aperture) / 100.0);
   else
     return "Auto";

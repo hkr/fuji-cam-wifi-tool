@@ -49,8 +49,8 @@ void print(std::vector<capability> const& caps) {
         } else if (cap.property_code == property_aperture) {
             for (uint16_t i = 0; i < cap.count; ++i) {
                 uint16_t raw_mode = cap.values[i];
-                std::string mode = string_format("%.1ff", static_cast<double>(raw_mode) / 100.0);
-                PRINT_CAPABILITY(raw_mode, mode.c_str(),
+                f_number aperture = raw_mode;
+                PRINT_CAPABILITY(raw_mode, to_string(aperture).c_str(),
                                  cap.default_value, cap.current_value);
             }
 
