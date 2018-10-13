@@ -20,7 +20,7 @@ void terminate_control_connection(native_socket sockfd);
 
 bool shutter(native_socket const sockfd, native_socket const sockfd2, const char* thumbnail = 0);
 
-bool current_settings(native_socket sockfd, std::map<property_codes, uint32_t>& settings);
+bool current_settings(native_socket sockfd, current_properties& settings);
 
 enum fnumber_update_direction {
     fnumber_increment,

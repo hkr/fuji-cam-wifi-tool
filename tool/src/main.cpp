@@ -185,7 +185,7 @@ int main(int const argc, char const* argv[]) {
   std::thread imageStreamCVThread;
 #endif
   std::vector<capability> caps;
-  std::map<property_codes, uint32_t> settings;
+  current_properties settings;
 
   std::string line;
   while (getline(line)) {
@@ -252,18 +252,18 @@ int main(int const argc, char const* argv[]) {
         if (splitLine.size() > 1) {
           uint32_t const aperture = static_cast<uint32_t>(std::stod(splitLine[1]) * 100.0);
           if (aperture > 0 && aperture < 6400 && 
-              current_settings(sockfd, settings) && settings[property_aperture] > 0 &&
-              aperture != settings[property_aperture]) {
-            const fnumber_update_direction direction = aperture < settings[property_aperture] ? fnumber_decrement : fnumber_increment;
+              current_settings(sockfd, settings) && settings.values[property_aperture] > 0 &&
+              aperture != settings.values[property_aperture]) {
+            const fnumber_update_direction direction = aperture < settings.values[property_aperture] ? fnumber_decrement : fnumber_increment;
             uint32_t last_aperture = 0;
             do {
-              last_aperture = settings[property_aperture];
+              last_aperture = settings.values[property_aperture];
               if (!update_setting(sockfd, direction))
                 break;
             } while(current_settings(sockfd, settings) && 
-                    settings[property_aperture] != last_aperture && 
-                    aperture != settings[property_aperture] &&
-                    direction == (aperture < settings[property_aperture] ? fnumber_decrement : fnumber_increment));
+                    settings.values[property_aperture] != last_aperture && 
+                    aperture != settings.values[property_aperture] &&
+                    direction == (aperture < settings.values[property_aperture] ? fnumber_decrement : fnumber_increment));
             print(settings);
           } 
         }
@@ -305,18 +305,18 @@ int main(int const argc, char const* argv[]) {
           int res = std::sscanf(splitLine[1].c_str(), "%lf/%lf", &nom, &denom);
           if (res > 0) {
             double new_speed = (res == 1 ? nom : nom / denom) * 1000000.0;
-            if (current_settings(sockfd, settings) && settings[property_shutter_speed] > 0 &&
-                new_speed != ss_to_microsec(settings[property_shutter_speed])) {
-              const ss_update_direction direction = new_speed < ss_to_microsec(settings[property_shutter_speed]) ? ss_increment : ss_decrement;
+            if (current_settings(sockfd, settings) && settings.values[property_shutter_speed] > 0 &&
+                new_speed != ss_to_microsec(settings.values[property_shutter_speed])) {
+              const ss_update_direction direction = new_speed < ss_to_microsec(settings.values[property_shutter_speed]) ? ss_increment : ss_decrement;
               uint64_t last_speed = 0;
               do {
-                last_speed = ss_to_microsec(settings[property_shutter_speed]);
+                last_speed = ss_to_microsec(settings.values[property_shutter_speed]);
                 if (!update_setting(sockfd, direction))
                   break;
               } while(current_settings(sockfd, settings) &&
-                      ss_to_microsec(settings[property_shutter_speed]) != last_speed &&
-                      new_speed != ss_to_microsec(settings[property_shutter_speed]) &&
-                      direction == (new_speed < ss_to_microsec(settings[property_shutter_speed]) ? ss_increment : ss_decrement));
+                      ss_to_microsec(settings.values[property_shutter_speed]) != last_speed &&
+                      new_speed != ss_to_microsec(settings.values[property_shutter_speed]) &&
+                      direction == (new_speed < ss_to_microsec(settings.values[property_shutter_speed]) ? ss_increment : ss_decrement));
               print(settings);
             }
           }
@@ -341,17 +341,17 @@ int main(int const argc, char const* argv[]) {
       case command::set_exposure_compensation: {
         if (splitLine.size() > 1) {
           uint32_t const exp = static_cast<uint32_t>(std::stod(splitLine[1]) * 1000.0);
-          if (current_settings(sockfd, settings) && exp != settings[property_exposure_compensation]) {
-            const exp_update_direction direction = exp < settings[property_exposure_compensation] ? exp_decrement : exp_increment;
+          if (current_settings(sockfd, settings) && exp != settings.values[property_exposure_compensation]) {
+            const exp_update_direction direction = exp < settings.values[property_exposure_compensation] ? exp_decrement : exp_increment;
             uint32_t last_exp = 0;
             do {
-              last_exp = settings[property_exposure_compensation];
+              last_exp = settings.values[property_exposure_compensation];
               if (!update_setting(sockfd, direction))
                 break;
             } while(current_settings(sockfd, settings) && 
-                    settings[property_exposure_compensation] != last_exp && 
-                    exp != settings[property_exposure_compensation] &&
-                    direction == (exp < settings[property_exposure_compensation] ? exp_decrement : exp_increment));
+                    settings.values[property_exposure_compensation] != last_exp && 
+                    exp != settings.values[property_exposure_compensation] &&
+                    direction == (exp < settings.values[property_exposure_compensation] ? exp_decrement : exp_increment));
             print(settings);
           } 
         }

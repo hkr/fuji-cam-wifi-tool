@@ -239,7 +239,12 @@ struct shutter_speed {
 };
 char const* to_string(shutter_speed speed);
 
-void print(std::map<property_codes, uint32_t> const& settings);
+struct current_properties {
+  std::vector<property_codes> camera_order;
+  std::map<property_codes, uint32_t> values;
+};
+
+void print(current_properties& settings);
 
 double ss_to_microsec(uint32_t raw_speed);
 }  // namespace fcwt

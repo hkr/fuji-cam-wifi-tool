@@ -56,12 +56,12 @@ double ss_to_microsec(uint32_t raw_speed) {
     return 1000.0 * static_cast<double>(raw_speed);
 }
 
-void print(std::map<property_codes, uint32_t> const& settings) {
+void print(current_properties& settings) {
     printf("camera settings:\n");
 
-    for (auto const &s : settings) {
-        auto const &key   = s.first;
-        auto const &value = s.second;
+    for (size_t i = 0; i < settings.camera_order.size(); ++i) {
+        auto const &key   = settings.camera_order[i];
+        auto const &value = settings.values[key];
 
         if (! property_strings.count(key)) {
             printf("\t%s (%s): %s\n", property_strings[property_unknown],

@@ -426,7 +426,7 @@ bool shutter(native_socket const sockfd, native_socket const sockfd2, const char
   return success;
 }
 
-bool current_settings(native_socket sockfd, std::map<property_codes, uint32_t>& settings) {
+bool current_settings(native_socket sockfd, current_properties& settings) {
   auto const msg = generate<status_request_message>();
   fuji_send(sockfd, &msg, sizeof(msg));
   uint8_t buf[1024];
@@ -443,6 +443,8 @@ bool current_settings(native_socket sockfd, std::map<property_codes, uint32_t>& 
   memcpy(&numSettings, ptr, 2);
   ptr += 2;
 
+  settings.camera_order.clear();
+
   for (uint16_t i = 0; i < numSettings; ++i) {
     property_codes code;
     uint32_t value;
@@ -450,7 +452,8 @@ bool current_settings(native_socket sockfd, std::map<property_codes, uint32_t>& 
     memcpy(&code, data, 2);
     memcpy(&value, data + 2, 4);
 
-    settings[code] = value;
+    settings.camera_order.push_back(code);
+    settings.values[code] = value;
 
     std::string log_setting = std::string("Setting msg: ").append(hex_format(&code, 2))
                                                           .append(hex_format(&value, 4));
