@@ -84,6 +84,22 @@ void image_stream_main(std::atomic<bool>& flag) {
   }
 }
 
+char const* usage =
+  "Usage:\n"
+  "    help|connect|info|shutter|focus-unlock\n"
+  "    increment|decrement TARGET\n"
+  "    set TARGET VALUE1 [VALUE2]\n"
+  "    stream [cv]\n"
+  "TARGET:\n"
+  "    iso:           takes an integer value (e.g. 200)\n"
+  "    f-number:      takes a float value (e.g. 3.5)\n"
+  "    focus-point:   takes a pair of values denoting the focus point coordinates X and Y (e.g. 5 5)\n"
+  "    shutter-speed: takes a value of the form N/M or N (e.g. 1/20, 3)\n"
+  "    exposure-compensation:\n"
+  "                   takes a float value (e.g. 1.3)\n"
+  "    white-balance|film-simulation|self-timer|flash:\n"
+  "                   takes an integer value. Value is one of the values in camera properties\n";
+
 char const* completion_strings[] = {
   "connect",
   "info",
@@ -215,6 +231,10 @@ int main(int const argc, char const* argv[]) {
 
     command cmd = parse_command(args[0]);
     switch (cmd) {
+      case command::help: {
+        printf(usage);
+      } break;
+
       case command::connect: {
         if (sockfd <= 0) {
           sockfd = connect_to_camera(control_server_port);
@@ -260,7 +280,7 @@ int main(int const argc, char const* argv[]) {
 
       case command::set: {
         if (args.size() < 3) {
-          printf("unknown command\n");
+          printf(usage);
           break;
         }
 
@@ -357,8 +377,8 @@ int main(int const argc, char const* argv[]) {
           success = update_setting(sockfd, point);
 
         } else {
-            success = true;
-            printf("available options are\n");
+            printf(usage);
+            break;
         }
 
         if (success) {
@@ -373,7 +393,7 @@ int main(int const argc, char const* argv[]) {
         decrement = true;
       case command::increment: {
         if (args.size() != 2) {
-          printf("unknown command\n");
+          printf(usage);
           break;
         }
 
@@ -387,8 +407,8 @@ int main(int const argc, char const* argv[]) {
           success = update_setting(sockfd, decrement ? exp_decrement : exp_increment);
 
         else {
-            success = true;
-            printf("available options are\n");
+            printf(usage);
+            break;
         }
 
         if (success) {
