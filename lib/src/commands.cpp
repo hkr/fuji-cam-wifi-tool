@@ -395,7 +395,7 @@ bool init_control_connection(native_socket const sockfd, char const* deviceName,
   // 'receive mode', 'browse mode': 0x03 0x00 0x00 0x00, 'geo mode': 0x02, 0x00,
   // 0x00, 0x00
   auto const msg6_2 =
-      make_static_message_followup(msg6_1, 0x04, 0x00, 0x02, 0x00);
+      make_static_message_followup(msg6_1, 0xff, 0x00, 0x02, 0x00);
   fuji_twopart_message(sockfd, msg6_1, msg6_2);
 
   fuji_send(sockfd, make_static_message(message_type::camera_capabilities));
