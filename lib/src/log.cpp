@@ -79,7 +79,7 @@ void print_uint32(void const* data, size_t sizeBytes, append_newline anl) {
   // remaining bytes
   auto const remainingBytes = sizeBytes % 4;
   if (remainingBytes > 0) printf(" ");
-  printf(hex_format(&bytes[numInts * 4], remainingBytes).c_str());
+  printf("%s", hex_format(&bytes[numInts * 4], remainingBytes).c_str());
 }
 
 void fatal_error(char const* msg) {
