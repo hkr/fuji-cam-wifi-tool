@@ -6,6 +6,52 @@
 
 namespace fcwt {
 
+typedef std::pair<property_codes, const char*> prop_str_pair;
+const prop_str_pair property_strings[] = {
+   {property_white_balance, "White Balance"},
+   {property_aperture, "Aperture"},
+   {property_focus_mode, "Focus Mode"},
+   {property_shooting_mode, "Shooting Mode"},
+   {property_flash, "Flash"},
+   {property_exposure_compensation, "Exposure Compensation"},
+   {property_self_timer, "Self Timer"},
+   {property_film_simulation, "Film Simulation"},
+   {property_image_format, "Image Format"},
+   {property_recmode_enable, "Recording Mode"},
+   {property_f_ss_control, "Aperture/ShutterSpeed ctrl"},
+   {property_iso, "ISO"},
+   {property_movie_iso, "Movie ISO"},
+   {property_focus_point, "Focus Point"},
+   {property_focus_lock, "Focus Lock"},
+   {property_device_error, "Device Error"},
+   {property_image_space_sd, "Image Space on SD"},
+   {property_movie_remaining_time, "Movie Time Remaining"},
+   {property_shutter_speed, "Shutter Speed"},
+   {property_image_aspect, "Image Aspect"},
+   {property_battery_level, "Battery Level"},
+   {property_unknown, "== Unknown Property =="}
+};
+
+bool is_known_property(uint16_t value)
+{
+    auto it = std::find_if(std::begin(property_strings), std::end(property_strings), [value](prop_str_pair p){
+        return p.first == value;
+    });
+    return it != std::end(property_strings);
+}
+
+std::string to_string(property_codes property)
+{
+    auto it = std::find_if(std::begin(property_strings), std::end(property_strings), [property](prop_str_pair p){
+        return p.first == property;
+    });
+
+    if (it == std::end(property_strings))
+        return std::to_string(property);
+
+    return it->second;
+}
+
 #define PRINT_CAPABILITY(value, value_string, default_value, current_value) \
             std::string flag = ""; \
             if (value == current_value && value == default_value) \
@@ -20,12 +66,12 @@ void print(std::vector<capability> const& caps) {
     printf("camera capabilities:\n");
 
     for (capability cap : caps) {
-        if (! property_strings.count(cap.property_code)) {
-            printf("\t%s: %s\n", property_strings[property_unknown], hex_format(&cap.property_code, 2).c_str());
+        if (!is_known_property(cap.property_code)) {
+            printf("\t%s: %s\n", to_string(property_unknown).c_str(), hex_format(&cap.property_code, 2).c_str());
             continue;
         }
 
-        printf("\t%s%s:\n", property_strings[cap.property_code], cap.get_set ? "" : " (immutable)");
+        printf("\t%s%s:\n", to_string(cap.property_code).c_str(), cap.get_set ? "" : " (immutable)");
 /*
         if (cap.form_flag == 1) {
             printf("\t\t    min: %d\n", cap.min_value);
@@ -60,17 +106,10 @@ void print(std::vector<capability> const& caps) {
                    cap.property_code == property_recmode_enable ||
                    cap.property_code == property_white_balance) {
             for (uint16_t i = 0; i < cap.count; ++i) {
-                if (property_value_strings[cap.property_code].count(cap.values[i])) {
-                    std::string value_str = property_value_strings[cap.property_code][cap.values[i]];
-                    value_str.append(string_format(" (%d)", cap.values[i]));
-                    PRINT_CAPABILITY(cap.values[i], value_str.c_str(),
-                                     cap.default_value, cap.current_value);
-                } else {
-                    std::string value_str = property_value_strings[property_unknown][0];
-                    value_str.append(string_format(" (%d)", cap.values[i]));
-                    PRINT_CAPABILITY(cap.values[i], value_str.c_str(),
-                                     cap.default_value, cap.current_value);
-                }
+                std::string value_str = to_string(cap.property_code, cap.values[i]);
+                value_str.append(string_format(" (%d)", cap.values[i]));
+                PRINT_CAPABILITY(cap.values[i], value_str.c_str(),
+                                 cap.default_value, cap.current_value);
             }
 
         } else if (cap.property_code == property_iso) {

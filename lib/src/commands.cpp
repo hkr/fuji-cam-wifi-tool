@@ -217,7 +217,7 @@ capability parse_capability(uint8_t const* data, size_t const size) {
     }
 
     std::string log_capability = std::string("capability: ").append(hex_format(data, size));
-    log(LOG_DEBUG2, log_capability.append(property_strings[cap.property_code]));
+    log(LOG_DEBUG2, log_capability.append(to_string(cap.property_code)));
 
     return cap;
 }
@@ -457,10 +457,10 @@ bool current_settings(native_socket sockfd, current_properties& settings) {
 
     std::string log_setting = std::string("Setting msg: ").append(hex_format(&code, 2))
                                                           .append(hex_format(&value, 4));
-    if (! property_strings.count(code))
+    if (!is_known_property(code))
       code = property_unknown;
 
-    log(LOG_DEBUG2, log_setting.append(property_strings[code]));
+    log(LOG_DEBUG2, log_setting.append(to_string(code)));
   }
 
   receivedBytes = fuji_receive(sockfd, buf);

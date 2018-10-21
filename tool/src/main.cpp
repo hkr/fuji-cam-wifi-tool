@@ -361,7 +361,7 @@ int main(int const argc, char const* argv[]) {
         if (splitLine.size() > 1) {
           uint32_t const value = std::stoi(splitLine[1], 0, 0);
           log(LOG_DEBUG, string_format("%s(%d)", splitLine[0].c_str(), value));
-          if (property_value_strings[property_white_balance].count(value) && update_setting(sockfd, property_white_balance, value)) {
+          if (is_known_property_value(property_white_balance, value) && update_setting(sockfd, property_white_balance, value)) {
             if (current_settings(sockfd, settings))
               print(settings);
           } else {
@@ -375,7 +375,7 @@ int main(int const argc, char const* argv[]) {
           uint32_t const value = std::stoi(splitLine[1], 0, 0);
           log(LOG_DEBUG, string_format("%s (%d)", splitLine[0].c_str(), value));
 
-          if (property_value_strings[property_film_simulation].count(value) && update_setting(sockfd, property_film_simulation, value)) {
+          if (is_known_property_value(property_film_simulation, value) && update_setting(sockfd, property_film_simulation, value)) {
             if (current_settings(sockfd, settings))
               print(settings);
           } else {
@@ -389,7 +389,7 @@ int main(int const argc, char const* argv[]) {
           uint32_t const value = std::stoi(splitLine[1], 0, 0);
           log(LOG_DEBUG, string_format("%s (%d)", splitLine[0].c_str(), value));
 
-          if (property_value_strings[property_flash].count(value) && update_setting(sockfd, property_flash, value)) {
+          if (is_known_property_value(property_flash, value) && update_setting(sockfd, property_flash, value)) {
             if (current_settings(sockfd, settings))
               print(settings);
           } else {
@@ -403,7 +403,7 @@ int main(int const argc, char const* argv[]) {
           uint32_t const value = std::stoi(splitLine[1], 0, 0);
           log(LOG_DEBUG, string_format("%s (%d)", splitLine[0].c_str(), value));
 
-          if (property_value_strings[property_self_timer].count(value) && update_setting(sockfd, property_self_timer, value)) {
+          if (is_known_property_value(property_self_timer, value) && update_setting(sockfd, property_self_timer, value)) {
             if (current_settings(sockfd, settings))
               print(settings);
           } else {

@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <string>
 #include <vector>
-#include <map>
 
 namespace fcwt {
 
@@ -35,30 +34,9 @@ enum property_codes: uint16_t {
   property_unknown
 };
 
-static std::map<property_codes, const char *> property_strings = {
-   {property_white_balance, "White Balance"},
-   {property_aperture, "Aperture"},
-   {property_focus_mode, "Focus Mode"},
-   {property_shooting_mode, "Shooting Mode"},
-   {property_flash, "Flash"},
-   {property_exposure_compensation, "Exposure Compensation"},
-   {property_self_timer, "Self Timer"},
-   {property_film_simulation, "Film Simulation"},
-   {property_image_format, "Image Format"},
-   {property_recmode_enable, "Recording Mode"},
-   {property_f_ss_control, "Aperture/ShutterSpeed ctrl"},
-   {property_iso, "ISO"},
-   {property_movie_iso, "Movie ISO"},
-   {property_focus_point, "Focus Point"},
-   {property_focus_lock, "Focus Lock"},
-   {property_device_error, "Device Error"},
-   {property_image_space_sd, "Image Space on SD"},
-   {property_movie_remaining_time, "Movie Time Remaining"},
-   {property_shutter_speed, "Shutter Speed"},
-   {property_image_aspect, "Image Aspect"},
-   {property_battery_level, "Battery Level"},
-   {property_unknown, "== Unknown Property =="}
-};
+bool is_known_property(uint16_t value);
+std::string to_string(property_codes property);
+
 
 struct capability {
   property_codes property_code = property_unknown;
