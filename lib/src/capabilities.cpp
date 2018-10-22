@@ -120,7 +120,7 @@ void print(std::vector<capability> const& caps) {
 
         } else if (cap.property_code == property_shutter_speed) {
             shutter_speed const spd { cap.current_value };
-            printf("\t\tvalue: %s\n", to_string(spd));
+            printf("\t\tvalue: %s\n", to_string(spd).c_str());
 
         } else if (cap.property_code == property_focus_point) {
 

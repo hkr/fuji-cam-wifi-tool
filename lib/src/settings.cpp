@@ -244,7 +244,7 @@ std::string to_string(iso_level iso) {
     return string_format("%6d %s", lvl & iso_value_mask, flag);
 }
 
-char const* to_string(shutter_speed speed) {
+std::string to_string(shutter_speed speed) {
     if (static_cast<int32_t>(speed.value) == -1)
         return "----";
 
@@ -296,7 +296,7 @@ void print(current_properties& settings) {
             printf("%s\n", to_string(iso).c_str());
         } else if (key == property_shutter_speed) {
             shutter_speed const spd { value };
-            printf(" %s\n", to_string(spd));
+            printf(" %s\n", to_string(spd).c_str());
         } else if (key == property_focus_point) {
             auto_focus_point point = value;
             printf("%s\n", to_string(point).c_str());

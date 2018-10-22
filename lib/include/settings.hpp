@@ -44,7 +44,7 @@ struct shutter_speed {
   operator uint32_t() const { return value; }
   uint32_t value;
 };
-char const* to_string(shutter_speed speed);
+std::string to_string(shutter_speed speed);
 
 struct current_properties {
   std::vector<property_codes> camera_order;
