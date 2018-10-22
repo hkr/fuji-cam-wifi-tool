@@ -3,6 +3,7 @@
 #include "log.hpp"
 
 #include <stdio.h>
+#include <algorithm>
 
 namespace fcwt {
 
