@@ -129,146 +129,98 @@ uint8_t message10[] =
 //    79:da:09:00 // last int is image id?
 // -> 10:00:00:00: 03:00:01:20: 91:00:00:00: 79:da:09:00 // image complete
 
-void parse_camera_caps_submessage(camera_capabilities& caps,
-                                  uint8_t const* data, size_t const size) {
-  if (size < 4) return;
+/*
+* Capability messages are of the format:
+* --
+* 2 bytes          DevicePropertyCode
+* 2 bytes          DataType (3 (2bytes), 4 (2bytes) or 6 (4bytes))
+* --
+* 1 byte           GetSet (0: get only, 1: get and set)
+* --
+* N bytes          FactoryDefaultValue
+* N bytes          CurrentValue
+* --
+* 1 byte           FormFlag (1: range(min, max, step); 2: list)
+* --
+* --
+* N bytes          MinValue
+* N bytes          MaxValue
+* N bytes          StepSize
+* -- or --
+* 2 bytes          NumberOfValues
+* count * N bytes  Values
+* --
+* --
+*
+* N depends on the DataType field
+*/
 
-  struct submessage_type {
-    uint16_t x, y;
-  };
-  submessage_type type = {};
-  memcpy(&type, data, sizeof(type));
+capability parse_capability(uint8_t const* data, size_t const size) {
+    uint16_t count = capability_max_values;
+    size_t value_size = 1;
+	size_t offset = 0;
+    uint32_t tmp;
+    capability cap;
 
-  switch (type.y) {
-    default: {
-      printf("printf_camera_caps_submessage, unknown type (%04X/%04X)\n",
-             static_cast<int>(type.x), static_cast<int>(type.y));
-      print_hex(data, size);
-    } break;
-    case 3: {
-      switch (type.x) {
-        default:
-          printf("printf_camera_caps_submessage, unknown type (%04X/%04X)\n",
-                 static_cast<int>(type.x), static_cast<int>(type.y));
-        case 0x5010:  // Shutter speed auto
-        {
-          print_hex(data, size);
-          // +1/3   4D 01
-          // +1     EB 03
-          // -1     18 FC
-          // -1 1/3 CB FA
-          // -3     48 F4
-          struct shutter_speed_auto {
-            uint8_t unknown0[3];
-            // !!
-            // TODO: this probably works similar to exposure in current_settings()!!
-            // !!
-            uint8_t exposure_compensation_dial_unknown;  // this changes when
-                                                         // turning the dial,
-                                                         // don't know what it
-                                                         // means
-            int8_t exposure_compensation_dial_value;     // doesn't match the
-                                                      // number on the dial, but
-                                                      // whatever
-            // more data here
-          };
-          shutter_speed_auto ssa;
-          memcpy(&ssa, data + 4, sizeof(shutter_speed_auto));
-          // printf("Exposure compensation: %d %01X\n",
-          // static_cast<int>(ssa->exposure_compensation_dial_value),
-          // ssa->exposure_compensation_dial_unknown);
-          caps.shutter_speed.exposure =
-              ssa.exposure_compensation_dial_value;  // TODO: map to -3/+3
-                                                     // range?
+    if (size < 4) return cap;
+
+    // Read DevicePropertyCode
+    memcpy(&cap.property_code, data + offset, 2);
+    offset += 2;
+    // Read DataType
+    memcpy(&cap.data_type, data + offset, 2);
+    offset += 2;
+
+	value_size = data_type_size(cap.data_type);
+
+    // Read GetSet flag
+    memcpy(&cap.get_set, data + offset, 1);
+    offset += 1;
+
+    // Read FactoryDefaultValue
+    memcpy(&cap.default_value, data + offset, value_size);
+    offset += value_size;
+    // Read CurrentValue
+    memcpy(&cap.current_value, data + offset, value_size);
+    offset += value_size;
+
+    // Read FormFlag
+    memcpy(&cap.form_flag, data + offset, 1);
+    offset += 1;
+
+    if (cap.form_flag == 1) {
+        // Read MinValue
+        memcpy(&cap.min_value, data + offset, value_size);
+        offset += value_size;
+        // Read MaxValue
+        memcpy(&cap.max_value, data + offset, value_size);
+        offset += value_size;
+        // Read StepSize
+        memcpy(&cap.step_size, data + offset, value_size);
+        offset += value_size;
+
+    } else if (cap.form_flag == 2) {
+        // Read Count
+        memcpy(&cap.count, data + offset, 2);
+        count = std::min(cap.count, count);
+        offset += 2;
+
+        // Read Value list
+        for (uint16_t i = 0; i < count; i++) {
+            tmp = 0;
+            memcpy(&tmp, data + offset + value_size*i, value_size);
+            cap.values[i] = tmp;
         }
+    }
 
-        break;
-      }
-    } break;
+    std::string log_capability = std::string("capability: ").append(hex_format(data, size));
+    log(LOG_DEBUG2, log_capability.append(to_string(cap.property_code)));
 
-    case 4: {
-      switch (type.x) {
-        case 0x5007: {
-          uint16_t aperture;
-          memcpy(&aperture, data + 7, 2);
-          print_hex(data + 4, size - 4);
-          caps.aperture.value = aperture;
-        } break;
-        default:
-          printf("printf_camera_caps_submessage, unknown type (%04X/%04X)\n",
-                 static_cast<int>(type.x), static_cast<int>(type.y));
-        case 0x5012:
-        case 0x500C:
-        case 0x5005:
-        case 0xD001:
-        case 0xD019: {
-          printf("Submessage: ");
-          print_hex(data, size);
-        } break;
-      }
-    } break;
-
-    case 6: {
-      switch (type.x) {
-        case 0xD02A: {
-          const size_t offset =
-              16;  // first is type, next 3 are not ISO levels, unknown
-          if (size >= offset) {
-            caps.iso.numLevels =
-                static_cast<uint32_t>(std::min(size - offset, sizeof(caps.iso.levels)) /
-                sizeof(*caps.iso.levels));
-            memcpy(caps.iso.levels, data + offset,
-                   caps.iso.numLevels * sizeof(*caps.iso.levels));
-          }
-        } break;
-
-        case 0xD240: {
-// don't know what caps.shutter_speed[1] means
-#if 0
-          B: Shutter speed: 1/30s 255 00020200
-          T: Shutter speed: 1/4000s 255 00020280
-          1: Shutter speed: 1/1s 255 00020200
-          2: Shutter speed: 1/2s 255 00020280
-          180x: Shutter speed: 1/180s 255 00020280
-          Shutter speed: 1/250s 255 00020280
-          A: Shutter speed: 1/0s 3 07070000
-#endif
-          printf("Shutter-speed:\n");
-          struct shutter_speed_status {
-            uint32_t unknown0;
-            uint32_t shutter_speed[2];
-            uint32_t unknown1[2];
-          };
-          print_uint32(data + 4, size - 4);
-          print_hex(data + 4, size - 4);
-          assert(size == sizeof(shutter_speed_status) + 4);
-          shutter_speed_status shutterStatus;
-          memcpy(&shutterStatus, data + 4, sizeof(shutterStatus));
-
-          if (static_cast<uint8_t>(shutterStatus.shutter_speed[0]) == 3) {
-            caps.shutter_speed.mode = shutter_speed_auto;
-          } else {
-            caps.shutter_speed.mode = shutter_speed_manual;
-            caps.shutter_speed.value =
-                (shutterStatus.shutter_speed[0] >> 8) / 1000;
-          }
-        } break;
-        case 0xD17C: {
-          printf("Autofocus: ");
-          print_hex(data + 4, size - 4);
-        } break;
-
-        default:
-          printf("printf_camera_caps_submessage, unknown type (%04X/%04X)\n",
-                 static_cast<int>(type.x), static_cast<int>(type.y));
-          break;
-      }
-    } break;
-  }
+    return cap;
 }
 
-camera_capabilities parse_camera_caps(void const* data, size_t const size) {
-  camera_capabilities caps = {};
+std::vector<capability> parse_camera_caps(void const* data, size_t const size) {
+  std::vector<capability> caps;
   size_t remainingBytes = size;
   uint8_t const* bytes = static_cast<uint8_t const*>(data);
   if (remainingBytes < 12) return caps;
@@ -279,16 +231,14 @@ camera_capabilities parse_camera_caps(void const* data, size_t const size) {
   while (remainingBytes > 0) {
     // sub-message size
     if (remainingBytes < 4) {
-      printf(
-          "Inconsistent message when getting next "
-          "submessage(remaingBytes=%zu)\n",
-          remainingBytes);
+      log(LOG_ERROR, string_format("Inconsistent message when getting next "
+                        "submessage(remaingBytes=%zu)", remainingBytes));
       break;
     }
     uint32_t subMsgSize = 0;
     memcpy(&subMsgSize, bytes, sizeof(subMsgSize));
     if (subMsgSize < 4) {
-      printf("Inconsistent submessage(subMsgSize=%d)\n", subMsgSize);
+      log(LOG_ERROR, string_format("Inconsistent submessage(subMsgSize=%d)", subMsgSize));
       break;
     }
     subMsgSize -= 4;
@@ -297,11 +247,11 @@ camera_capabilities parse_camera_caps(void const* data, size_t const size) {
 
     // sub-message actual sub-message
     if (remainingBytes < subMsgSize) {
-      printf("Inconsistent message (subMsgSize=%d)\n", subMsgSize);
+      log(LOG_ERROR, string_format("Inconsistent submessage(subMsgSize=%d)", subMsgSize));
       break;
     }
 
-    parse_camera_caps_submessage(caps, bytes, subMsgSize);
+    caps.push_back(parse_capability(bytes, subMsgSize));
 
     bytes += subMsgSize;
     remainingBytes -= subMsgSize;
@@ -312,55 +262,60 @@ camera_capabilities parse_camera_caps(void const* data, size_t const size) {
 
 }  // namespace
 
-bool update_setting(native_socket sockfd, iso_level iso) {
-  auto const msg_1 =
-      make_static_message(message_type::two_part, 0x2A, 0xD0, 0x00, 0x00);
-  auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(iso));
+bool update_setting(native_socket sockfd, property_codes code, uint32_t value) {
+  if (sockfd <= 0) return false;
+
+  auto const msg_type = message_type::two_part;
+  auto const msg_code = make_byte_array(static_cast<uint32_t>(code));
+  auto const msg_value = make_byte_array(value);
+  auto const msg_1 = make_static_message(msg_type, msg_code);
+  auto const msg_2 = make_static_message_followup(msg_1, msg_value);
+
   return fuji_twopart_message(sockfd, msg_1, msg_2);
-}
-
-bool update_setting(native_socket sockfd, image_settings image) {
-  return false;
-}
-
-bool update_setting(native_socket sockfd, film_simulation_mode film) {
-  return false;
 }
 
 bool update_setting(native_socket sockfd, auto_focus_point point) {
-  return false;
-}
-
-bool update_setting(native_socket sockfd, white_balance_mode white_balance) {
-  //10:00:00:00 01:00:16:10 68:00:00:00 05:50:00:00
-  //0e:00:00:00 02:00:16:10 68:00:00:00 06:80
-  auto const msg_1 =
-    make_static_message(message_type::two_part, 0x05, 0x50, 0x00, 0x00);
-  auto const msg_2 = make_static_message_followup(msg_1, make_byte_array(static_cast<uint16_t>(white_balance)));
-  return fuji_twopart_message(sockfd, msg_1, msg_2);
-}
-
-bool update_setting(native_socket sockfd, aperture_f_stop aperture) {
-  auto const msg = make_static_message(
-      message_type::aperture, aperture == aperture_close_third_stop ? 1 : 0, 0, 0, 0);
+  if (sockfd <= 0) return false;
+  auto const msg = make_static_message(message_type::focus_point, point.y, point.x, 0x02, 0x03);
   return fuji_message(sockfd, msg);
 }
 
-bool update_setting(native_socket sockfd, shutter_speed_stop shutter_speed) {
+bool unlock_focus(native_socket sockfd) {
+  if (sockfd <= 0) return false;
+  return fuji_message(sockfd, make_static_message(message_type::focus_unlock));
+}
+
+bool update_setting(native_socket sockfd, fnumber_update_direction dir) {
+  if (sockfd <= 0) return false;
   auto const msg = make_static_message(
-      message_type::shutter_speed, shutter_speed == shutter_speed_one_stop_faster ? 1 : 0, 0, 0, 0);
+      message_type::aperture, dir == fnumber_increment ? 1 : 0, 0, 0, 0);
+  return fuji_message(sockfd, msg);
+}
+
+bool update_setting(native_socket sockfd, ss_update_direction dir) {
+  if (sockfd <= 0) return false;
+  auto const msg = make_static_message(
+      message_type::shutter_speed, dir == ss_increment ? 1 : 0, 0, 0, 0);
+  return fuji_message(sockfd, msg);
+}
+
+bool update_setting(native_socket sockfd, exp_update_direction dir) {
+  if (sockfd <= 0) return false;
+  auto const msg = make_static_message(
+      message_type::exposure_correction, dir == exp_increment ? 1 : 0, 0, 0, 0);
   return fuji_message(sockfd, msg);
 }
 
 bool init_control_connection(native_socket const sockfd, char const* deviceName,
-                             camera_capabilities* caps) {
+                             std::vector<capability>* caps) {
   if (sockfd <= 0) return false;
 
   if (!deviceName || !deviceName[0]) deviceName = "CameraClient";
 
-  LOG_INFO_FORMAT("init_control_connection (socket %lld)", static_cast<long long>(sockfd));
+  log(LOG_INFO, string_format("init_control_connection (socket %lld)",
+                              static_cast<long long>(sockfd)));
   auto const reg_msg = generate_registration_message(deviceName);
-  LOG_INFO("send hello");
+  log(LOG_INFO, "send hello");
   fuji_send(sockfd, &reg_msg, sizeof(reg_msg));
 
   uint8_t buffer[1024];
@@ -373,7 +328,6 @@ bool init_control_connection(native_socket const sockfd, char const* deviceName,
     return false;
   }
 
-  auto msg2 = make_static_message(message_type::start, 0x01, 0x00, 0x00, 0x00);
   fuji_message(
       sockfd, make_static_message(message_type::start, 0x01, 0x00, 0x00, 0x00));
 
@@ -400,10 +354,8 @@ bool init_control_connection(native_socket const sockfd, char const* deviceName,
 
   fuji_send(sockfd, make_static_message(message_type::camera_capabilities));
   auto size = fuji_receive_log(sockfd, buffer);
-  print_uint32(buffer, size);
-  print_ascii(buffer, size);
 
-  if (caps) *caps = parse_camera_caps(buffer, size);
+  *caps = parse_camera_caps(buffer, size);
 
   fuji_receive_log(sockfd, buffer);
 
@@ -417,7 +369,7 @@ bool init_control_connection(native_socket const sockfd, char const* deviceName,
 void terminate_control_connection(native_socket sockfd) {
   if (sockfd <= 0) return;
 
-  LOG_INFO("terminate_control_connection");
+  log(LOG_INFO, "terminate_control_connection");
   fuji_message(sockfd, make_static_message(message_type::stop));
   uint32_t terminate = 0xffffffff;
   fuji_send(sockfd, &terminate, sizeof(terminate));
@@ -426,7 +378,7 @@ void terminate_control_connection(native_socket sockfd) {
 bool shutter(native_socket const sockfd, native_socket const sockfd2, const char* thumbnail) {
   if (sockfd <= 0) return false;
 
-  LOG_INFO("shutter");
+  log(LOG_INFO, "shutter");
   bool result = fuji_message(
       sockfd, make_static_message(message_type::shutter, 0x00, 0x00, 0x00, 0x00,
                                   0x00, 0x00, 0x00, 0x00));
@@ -438,11 +390,10 @@ bool shutter(native_socket const sockfd, native_socket const sockfd2, const char
 
   if (sockfd2) {
     receivedBytes = fuji_receive(sockfd2, buffer);
-    LOG_INFO_FORMAT("received %d bytes (async1)", receivedBytes);
-    print_hex(buffer, receivedBytes);
+    log(LOG_DEBUG, string_format("received %d bytes (async1) ", receivedBytes).append(hex_format(buffer, receivedBytes)));
+
     receivedBytes = fuji_receive(sockfd2, buffer);
-    LOG_INFO_FORMAT("received %d bytes (async2)", receivedBytes);
-    print_hex(buffer, receivedBytes);
+    log(LOG_DEBUG, string_format("received %d bytes (async2) ", receivedBytes).append(hex_format(buffer, receivedBytes)));
   }
 
   uint32_t lastMsgId = 0;
@@ -451,7 +402,7 @@ bool shutter(native_socket const sockfd, native_socket const sockfd2, const char
   fuji_send(sockfd, reqImg);
 
   receivedBytes = fuji_receive(sockfd, buffer);
-  LOG_INFO_FORMAT("received %d bytes (thumbnail)", receivedBytes);
+  log(LOG_INFO, string_format("received %d bytes (thumbnail)", receivedBytes));
   if (thumbnail && sockfd2 && receivedBytes > 8) {
     if (FILE* out = fopen(thumbnail, "wb")) {
       fwrite(buffer + 8, receivedBytes - 8, 1, out);
@@ -460,117 +411,28 @@ bool shutter(native_socket const sockfd, native_socket const sockfd2, const char
   }
 
   receivedBytes = fuji_receive(sockfd, buffer);
-  LOG_INFO_FORMAT("received %d bytes (response)", receivedBytes);
-  print_hex(buffer, receivedBytes);
+  log(LOG_DEBUG, string_format("received %d bytes (response) ", receivedBytes).append(hex_format(buffer, receivedBytes)));
 
   const bool success = is_success_response(lastMsgId, buffer, receivedBytes);
 
   if (sockfd2) {
     receivedBytes = fuji_receive(sockfd2, buffer);
-    LOG_INFO_FORMAT("received %d bytes (async3)", receivedBytes);
-    print_hex(buffer, receivedBytes);
+    log(LOG_DEBUG, string_format("received %d bytes (async3) ", receivedBytes).append(hex_format(buffer, receivedBytes)));
   }
 
   return success;
 }
 
-static bool parse_film_simulation_mode(uint32_t value,
-                                       film_simulation_mode& mode) {
-  if (value == 0)
-    return false;
- 
-  mode = static_cast<film_simulation_mode>(value);
-  return true;
-}
-
-static bool parse_image_settings(uint32_t const format,
-                                 uint32_t const size_aspect,
-                                 uint32_t const image_space_on_sdcard,
-                                 image_settings& image) {
-  switch (format) {
-    default:
-      return false;
-    case 2:
-      image.format = image_format_jpeg;
-      image.quality = jpeg_quality_fine;
-    case 3:
-      image.format = image_format_jpeg;
-      image.quality = jpeg_quality_normal;
-    case 4:
-      image.format = image_format_raw_and_jpeg;
-      image.quality = jpeg_quality_fine;
-      break;
-    case 5:
-      image.format = image_format_raw_and_jpeg;
-      image.quality = jpeg_quality_normal;
-      break;
-  }
-
-  switch (size_aspect) {
-    default:
-      return false;
-    case 2:
-      image.size = jpeg_size_s;
-      image.aspect = jpeg_aspect_3_by_2;
-      break;
-    case 3:
-      image.size = jpeg_size_s;
-      image.aspect = jpeg_aspect_16_by_9;
-      break;
-    case 4:
-      image.size = jpeg_size_s;
-      image.aspect = jpeg_aspect_1_by_1;
-      break;
-    case 6:
-      image.size = jpeg_size_m;
-      image.aspect = jpeg_aspect_3_by_2;
-      break;
-    case 7:
-      image.size = jpeg_size_m;
-      image.aspect = jpeg_aspect_16_by_9;
-      break;
-    case 8:
-      image.size = jpeg_size_m;
-      image.aspect = jpeg_aspect_1_by_1;
-      break;
-    case 10:
-      image.size = jpeg_size_l;
-      image.aspect = jpeg_aspect_3_by_2;
-      break;
-    case 11:
-      image.size = jpeg_size_l;
-      image.aspect = jpeg_aspect_16_by_9;
-      break;
-    case 12:
-      image.size = jpeg_size_l;
-      image.aspect = jpeg_aspect_1_by_1;
-      break;
-  }
-
-  image.space_on_sdcard = image_space_on_sdcard;
-
-  return true;
-}
-
-static bool parse_auto_focus(uint32_t const autofocus_point,
-                             auto_focus_point& focus_point) {
-  focus_point.x = static_cast<uint8_t>((autofocus_point >> 8) & 0xff);
-  focus_point.y = static_cast<uint8_t>((autofocus_point >> 0) & 0xff);
-  return true;
-}
-
-bool current_settings(native_socket sockfd, camera_settings& settings) {
-  settings = camera_settings();
-
+bool current_settings(native_socket sockfd, current_properties& settings) {
   auto const msg = generate<status_request_message>();
-  // printf("Status request %d\n", msg.id);
   fuji_send(sockfd, &msg, sizeof(msg));
   uint8_t buf[1024];
   size_t receivedBytes = fuji_receive(sockfd, buf);
-  printf("Status: %zd bytes\n", receivedBytes);
-  //print_hex(buf, receivedBytes);
-  //print_uint32(buf, receivedBytes);
-  //print_ascii(buf, receivedBytes);
+
+  if (receivedBytes == 0)
+    return false;
+
+  log(LOG_DEBUG2, string_format("Status: %zd bytes ", receivedBytes).append(hex_format(buf, receivedBytes)));
 
   uint8_t* ptr = buf;
   ptr += 8; // skip header
@@ -578,111 +440,28 @@ bool current_settings(native_socket sockfd, camera_settings& settings) {
   memcpy(&numSettings, ptr, 2);
   ptr += 2;
 
-  uint32_t image_format = 0;
-  uint32_t image_size_aspect = 0;
-  uint32_t image_space_on_sdcard = 0;
+  settings.camera_order.clear();
 
-  for (uint16_t i = 0; i < numSettings; ++i)
-  {
-    uint16_t code;
+  for (uint16_t i = 0; i < numSettings; ++i) {
+    property_codes code;
     uint32_t value;
     uint8_t* data = ptr + i * 6;
     memcpy(&code, data, 2);
     memcpy(&value, data + 2, 4);
 
-    switch(code)
-    {
-    case 0xD209:
-      printf("Known but unused setting code=%x, value=%x\n", (unsigned)code, (unsigned)value);
-      break;   
-    default:
-      printf("Unknown setting code=%x, value=%x\n", (unsigned)code, (unsigned)value);
-      break;
-    case 0xD240:
-    {
-      const uint32_t shutter_speed_value_mask = ~0x80000000;
-      settings.shutter_speed = value & shutter_speed_value_mask;
-      settings.one_div_shutter_speed = settings.shutter_speed != value;
-    }
-    break;
-    case 0x5007:
-    {
-      settings.aperture.value = value;
-    }
-    break;
-    case 0x5005:
-    {
-      parse_white_balance_mode(value, settings.white_balance);
-    }
-    break;
-    case 0xD001:
-    {
-      parse_film_simulation_mode(value, settings.film_simulation);
-    }
-    break;
-    case 0xD02A:
-    {
-      settings.iso = value;
-    }
-    break;
-    case 0xD018:
-    {
-      image_format = value;
-    }
-    break;
-    case 0xD241:
-    {
-      image_size_aspect = value;
-    }
-    break;
-    case 0xD229:
-    {
-      image_space_on_sdcard = value;
-    }
-    break;
-    case 0xD17C:
-    {
-      parse_auto_focus(value, settings.focus_point);
-    }
-    break;
-    case 0x500c:
-    {
-      // flash mode: pop-up 8001, 
-    }
-    break;
-    case 0x5012:
-    {
-      // self-timer, value is probably seconds, 0 = disabled
-    }
-    break;
-    case 0x500a:
-    {
-      // focus mode? S/C=8001 M=1
-    }
-    break;
-    case 0x5010:
-    {
-      settings.exposure = static_cast<int16_t>(static_cast<uint16_t>(value));
-    }
-    break;
-    case 0xD028:
-    {
-      // probably shutter type, 0 = MS+ES, 1 = ES
-      settings.shutter = value ? electronic_shutter : mechanical_shutter;
-    }
-    break;
-    case 0xd242:
-    {
-      // battery level, 4 full, 0 empty?
-      settings.battery_level = value;
-    }
-    }
+    settings.camera_order.push_back(code);
+    settings.values[code] = value;
+
+    std::string log_setting = std::string("Setting msg: ").append(hex_format(&code, 2))
+                                                          .append(hex_format(&value, 4));
+    if (!is_known_property(code))
+      code = property_unknown;
+
+    log(LOG_DEBUG2, log_setting.append(to_string(code)));
   }
 
-  parse_image_settings(image_format, image_size_aspect, 
-          image_space_on_sdcard, settings.image);
-
   receivedBytes = fuji_receive(sockfd, buf);
+  log(LOG_DEBUG2, std::string("received bytes@@@").append(hex_format(buf, receivedBytes)));
 
   return true;
 }

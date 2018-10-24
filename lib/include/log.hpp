@@ -6,18 +6,29 @@
 
 #include "platform.hpp"
 
-#define LOG_INFO(str) printf("[INFO] " str "\n")
-#define LOG_INFO_FORMAT(fmt, ...) printf("[INFO] " fmt "\n", __VA_ARGS__)
-
-#define LOG_WARN(str) printf("[WARNING] " str "\n")
-#define LOG_WARN_FORMAT(fmt, ...) printf("[WARNING] " fmt "\n", __VA_ARGS__)
-
 namespace fcwt {
+
+const uint8_t LOG_ERROR = 1;
+const uint8_t LOG_WARN = 2;
+const uint8_t LOG_INFO = 3;
+const uint8_t LOG_DEBUG = 4;
+const uint8_t LOG_DEBUG2 = 5;
+
+const uint8_t LOG_STDOUT = 1;
+const uint8_t LOG_FILE = 2;
+
+struct log_settings {
+    uint8_t level = LOG_DEBUG;
+    uint8_t output = LOG_STDOUT;
+};
+extern log_settings log_conf;
+
+void log(uint8_t level, std::string msg);
 
 enum append_newline { skip_newline, newline };
 
-void print_hex(void const* data, size_t const sizeBytes,
-               append_newline anl = newline);
+std::string hex_format(void const* data, size_t const sizeBytes);
+
 void print_ascii(void const* data, size_t const sizeBytes,
                  append_newline anl = newline);
 void print_uint32(void const* data, size_t const sizeBytes,

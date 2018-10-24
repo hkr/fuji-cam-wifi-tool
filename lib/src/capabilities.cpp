@@ -1,49 +1,135 @@
 #include "capabilities.hpp"
+#include "settings.hpp"
+#include "log.hpp"
 
 #include <stdio.h>
-#include "log.hpp"
+#include <algorithm>
 
 namespace fcwt {
 
-std::string to_string(iso_level iso)
-{
-    auto const lvl = iso.value;
-    char const* flag = "";
-    if (lvl & iso_flag_auto) 
-        flag = " (auto)";
-    else if (lvl & iso_flag_emulated)
-        flag = " (emulated)";
+typedef std::pair<property_codes, const char*> prop_str_pair;
+const prop_str_pair property_strings[] = {
+   {property_white_balance, "White Balance"},
+   {property_aperture, "Aperture"},
+   {property_focus_mode, "Focus Mode"},
+   {property_shooting_mode, "Shooting Mode"},
+   {property_flash, "Flash"},
+   {property_exposure_compensation, "Exposure Compensation"},
+   {property_self_timer, "Self Timer"},
+   {property_film_simulation, "Film Simulation"},
+   {property_image_format, "Image Format"},
+   {property_recmode_enable, "Recording Mode"},
+   {property_f_ss_control, "Aperture/ShutterSpeed ctrl"},
+   {property_iso, "ISO"},
+   {property_movie_iso, "Movie ISO"},
+   {property_focus_point, "Focus Point"},
+   {property_focus_lock, "Focus Lock"},
+   {property_device_error, "Device Error"},
+   {property_image_space_sd, "Image Space on SD"},
+   {property_movie_remaining_time, "Movie Time Remaining"},
+   {property_shutter_speed, "Shutter Speed"},
+   {property_image_aspect, "Image Aspect"},
+   {property_battery_level, "Battery Level"},
+   {property_unknown, "== Unknown Property =="}
+};
 
-    return string_format("%12d%s", lvl & iso_value_mask, flag);
+bool is_known_property(uint16_t value)
+{
+    auto it = std::find_if(std::begin(property_strings), std::end(property_strings), [value](prop_str_pair p){
+        return p.first == value;
+    });
+    return it != std::end(property_strings);
 }
 
-std::string to_string(aperture_f_number aperture)
+std::string to_string(property_codes property)
 {
-    if (aperture.value)
-        return string_format("%.1f", static_cast<float>(aperture.value) / 100.f);
-    else
-        return "auto";
+    auto it = std::find_if(std::begin(property_strings), std::end(property_strings), [property](prop_str_pair p){
+        return p.first == property;
+    });
+
+    if (it == std::end(property_strings))
+        return std::to_string(property);
+
+    return it->second;
 }
 
-void print(camera_capabilities const& caps)
+#define PRINT_CAPABILITY(value, value_string, default_value, current_value) \
+            std::string flag = ""; \
+            if (value == current_value && value == default_value) \
+                flag = "(default/current)"; \
+            else if (value == default_value) \
+                flag = "(default)"; \
+            else if (value == current_value) \
+                flag = "(current)"; \
+            printf("\t\t%s %s\n", value_string, flag.c_str())
+
+static int cap_value_to_int(data_type dt, uint32_t value)
 {
+	switch (dt)
+	{
+	case data_type_int8: return static_cast<int8_t>(value);
+	case data_type_int16: return static_cast<int16_t>(value);
+	default:
+		return static_cast<int>(value);
+	}
+}
+
+void print(std::vector<capability> const& caps) {
     printf("camera capabilities:\n");
 
-    printf("\tiso levels (%d):\n", caps.iso.numLevels);
-    for (uint32_t i = 0; i < caps.iso.numLevels; ++i)
-    {
-        iso_level const lvl { caps.iso.levels[i] };
-        printf("\t\t%s\n", to_string(lvl).c_str());
-    }
+    for (capability cap : caps) {
+        printf("\t%s%s:\n", to_string(cap.property_code).c_str(), cap.get_set ? "" : " (immutable)");
 
-    printf("\tshutter speed:\n");
-    printf("\t\tmode: %s\n", caps.shutter_speed.mode == shutter_speed_auto ? "auto" : "manual");
-    if (caps.shutter_speed.mode == shutter_speed_manual)
-        printf("\t\ttime: 1/%ds\n", caps.shutter_speed.value);
-    else
-        printf("\t\texposure compensation: %d\n", static_cast<int>(caps.shutter_speed.exposure));
-    printf("\taperture:\n");
-    printf("\t\tvalue: %s\n", to_string(caps.aperture).c_str());
+        if (cap.property_code == property_exposure_compensation) {
+            for (uint16_t i = 0; i < cap.count; ++i) {
+                int16_t raw_mode = static_cast<int16_t>(cap.values[i]);
+                std::string mode = string_format("%.1f", static_cast<double>(raw_mode) / 1000.0);
+                PRINT_CAPABILITY(raw_mode, mode.c_str(),
+                                 static_cast<int16_t>(cap.default_value),
+                                 static_cast<int16_t>(cap.current_value));
+            }
+
+        } else if (cap.property_code == property_aperture) {
+            for (uint16_t i = 0; i < cap.count; ++i) {
+                uint16_t raw_mode = cap.values[i];
+                f_number aperture = raw_mode;
+                PRINT_CAPABILITY(raw_mode, to_string(aperture).c_str(),
+                                 cap.default_value, cap.current_value);
+            }
+
+        } else if (cap.property_code == property_self_timer ||
+                   cap.property_code == property_flash ||
+                   cap.property_code == property_film_simulation ||
+                   cap.property_code == property_recmode_enable ||
+                   cap.property_code == property_white_balance) {
+            for (uint16_t i = 0; i < cap.count; ++i) {
+                std::string value_str = to_string(cap.property_code, cap.values[i]);
+                value_str.append(string_format(" (%d)", cap.values[i]));
+                PRINT_CAPABILITY(cap.values[i], value_str.c_str(),
+                                 cap.default_value, cap.current_value);
+            }
+
+        } else if (cap.property_code == property_iso) {
+            for (uint32_t i = 0; i < cap.count; ++i) {
+                iso_level const lvl { cap.values[i] };
+                printf("\t\t%s\n", to_string(lvl).c_str());
+            }
+
+        } else if (cap.property_code == property_shutter_speed) {
+            shutter_speed const spd { cap.current_value };
+            printf("\t\tvalue: %s\n", to_string(spd).c_str());
+
+        } else {
+			if (cap.form_flag == 1) {
+				printf("\t\t    min: %d\n", cap_value_to_int(cap.data_type, cap.min_value));
+				printf("\t\t    max: %d\n", cap_value_to_int(cap.data_type, cap.max_value));
+				printf("\t\t    step: %d\n", cap_value_to_int(cap.data_type, cap.step_size));
+			} else if (cap.form_flag == 2) {
+				for (uint16_t i = 0; i < cap.count; ++i)
+					printf("\t\t%d\n", cap_value_to_int(cap.data_type, cap.values[i]));
+			}
+        }
+    }
 }
 
 } // namespace fcwt

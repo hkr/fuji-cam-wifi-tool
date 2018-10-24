@@ -163,14 +163,14 @@ sock connect_to_camera(int port) {
     getsockopt(sockfd, SOL_SOCKET, SO_ERROR, (char*)&so_error, &len);
 
     if (so_error == 0) {
-      printf("Connection esatablished %s:%d (%lld)\n", server_ipv4_addr, port,
-             (long long) sockfd);
+      log(LOG_INFO, string_format("Connection esatablished %s:%d (%lld)",
+                                  server_ipv4_addr, port, (long long) sockfd));
       set_nonblocking_io(sockfd, false);
       return sockfd;
     }
   }
 
-  printf("Failed to connect\n");
+  log(LOG_ERROR, "Failed to connect");
   close_socket(sockfd);
   
   return 0;
@@ -230,7 +230,7 @@ size_t fuji_receive(native_socket sockfd, void* data, size_t sizeBytes) {
   receive_data(sockfd, &size, sizeof(size));
   size = from_fuji_size_prefix(size);
   if (size < sizeof(size)) {
-    LOG_WARN("fuji_receive, 0x invalid message");
+    log(LOG_WARN, "fuji_receive, 0x invalid message");
     return 0;
   }
   size -= sizeof(size);

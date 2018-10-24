@@ -8,20 +8,50 @@
 
 namespace fcwt {
 
-void print_hex(void const* data, size_t const sizeBytes, append_newline anl) {
+void log(uint8_t level, std::string msg) {
+  if (level <= log_conf.level)
+    switch(level) {
+      case LOG_ERROR: {
+        printf("[ERROR] %s\n", msg.c_str());
+        break;
+      }
+      case LOG_WARN: {
+        printf("[WARN] %s\n", msg.c_str());
+        break;
+      }
+      case LOG_INFO: {
+        printf("[INFO] %s\n", msg.c_str());
+        break;
+      }
+      case LOG_DEBUG: {
+        printf("[DEBUG] %s\n", msg.c_str());
+        break;
+      }
+      case LOG_DEBUG2: {
+        printf("[DEBUG2] %s\n", msg.c_str());
+        break;
+      }
+    }
+}
+
+std::string hex_format(void const* data, size_t const sizeBytes) {
+  std::string output = "[";
   size_t i = 0;
+
   while (i < sizeBytes) {
-    printf("%02X", static_cast<unsigned char const*>(data)[i]);
+    output.append(string_format("%02X", static_cast<unsigned char const*>(data)[i]));
     ++i;
     if (i == sizeBytes) break;
 
     if (i % 4 == 0)
-      printf(" ");
+      output.append(" ");
     else
-      printf(":");
+      output.append(":");
   }
 
-  if (anl == newline) printf("\n");
+  output.append("]");
+
+  return output;
 }
 
 void print_ascii(void const* data, size_t const sizeBytes, append_newline anl) {
@@ -49,7 +79,7 @@ void print_uint32(void const* data, size_t sizeBytes, append_newline anl) {
   // remaining bytes
   auto const remainingBytes = sizeBytes % 4;
   if (remainingBytes > 0) printf(" ");
-  print_hex(&bytes[numInts * 4], remainingBytes, anl);
+  printf("%s", hex_format(&bytes[numInts * 4], remainingBytes).c_str());
 }
 
 void fatal_error(char const* msg) {

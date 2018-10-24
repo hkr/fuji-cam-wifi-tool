@@ -25,11 +25,14 @@ enum class message_type : uint16_t {
   camera_remote = 0x101c,  // last command before camera remote works
 
   camera_last_image = 0x9022,
+  focus_point = 0x9026,    // updating focus point position
+  focus_unlock = 0x9027,   // unlock the current focus point
   camera_capabilities = 0x902b,  // unknown, app uses it before camera_remote,
                              // returns 392 bytes of data, maybe the current
                              // settings?
-  aperture = 0x902d, // relative adjustement of aperature by one third stop
   shutter_speed = 0x902c, // relative adjustment of sutter speed
+  aperture = 0x902d, // relative adjustement of aperature by one third stop
+  exposure_correction = 0x902e, // relative adjustment of exposure correction
 };
 
 char const* to_string(message_type type);
@@ -61,32 +64,26 @@ struct static_message : message_header,
 
 uint32_t generate_message_id();
 
-template <size_t N>
-void print_message(static_message<N> const& msg, append_newline anl = newline) {
-  printf("%s(%d) [", to_string(msg.type), static_cast<int>(msg.type));
-  print_hex(&msg, msg.size(), skip_newline);
-  printf("]");
-  if (anl == newline) printf("\n");
-}
-
 bool fuji_message(native_socket const sockfd, uint32_t const id, void const* message,
                   size_t size);
 
 template <size_t N>
 bool fuji_message(native_socket const sockfd, const static_message<N>& msg) {
-  printf("send: ");
-  print_message(msg);
+  std::string log_msg = string_format("send: %s(%d) ", to_string(msg.type), static_cast<int>(msg.type));
+  log(LOG_DEBUG, log_msg.append(hex_format(&msg, msg.size())));
   return fuji_message(sockfd, msg.id, &msg, msg.size());
 }
 
 template <size_t N>
 void fuji_send(native_socket sockfd, static_message<N> const& msg) {
-  printf("send: ");
-  print_message(msg);
+  std::string log_msg = string_format("send: %s(%d) ", to_string(msg.type), static_cast<int>(msg.type));
+  log(LOG_DEBUG, log_msg.append(hex_format(&msg, msg.size())));
   fuji_send(sockfd, &msg, msg.size());
 }
 
 inline void fuji_send(native_socket sockfd, message_header const& msg) {
+  std::string log_msg = string_format("send: %s(%d) ", to_string(msg.type), static_cast<int>(msg.type));
+  log(LOG_DEBUG, log_msg.append(hex_format(&msg, sizeof(message_header))));
   fuji_send(sockfd, &msg, sizeof(message_header));
 }
 
@@ -100,9 +97,9 @@ bool fuji_twopart_message(native_socket const sockfd, static_message<N1> const& 
 template <size_t N>
 size_t fuji_receive_log(native_socket sockfd, uint8_t(&data)[N]) {
   size_t size = fuji_receive(sockfd, data, N);
-  printf("receive %zu bytes [", size);
-  print_hex(data, size, skip_newline);
-  printf("]\n");
+
+  std::string log_msg = string_format("receive %zu bytes ", size);
+  log(LOG_DEBUG, log_msg.append(hex_format(data, size)));
   return size;
 }
 

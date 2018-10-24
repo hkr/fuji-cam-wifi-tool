@@ -3,112 +3,57 @@
 
 #include <stdint.h>
 #include <string>
+#include <map>
 
 #include "capabilities.hpp"
 
 namespace fcwt {
 
-enum image_format {
-  image_format_jpeg,
-  image_format_raw_and_jpeg
-  // when querying settings from camera we get RAW + FINE even when it's in pure RAW mode
-  // so no extra image_format_raw
-};
+const uint32_t iso_flag_auto = 1 << 31;
+const uint32_t iso_flag_emulated = 1 << 30;
+const uint32_t iso_value_mask = 0x00ffffff;
+const uint32_t shutter_flag_subsecond = 1 << 31;
+const uint32_t shutter_value_mask = 0x0fffffff;
 
-enum jpeg_quality {
-  jpeg_quality_fine,
-  jpeg_quality_normal,
-};
-
-enum jpeg_size {
-  jpeg_size_s,
-  jpeg_size_m,
-  jpeg_size_l,
-};
-
-enum jpeg_aspect {
-  jpeg_aspect_3_by_2,
-  jpeg_aspect_16_by_9,
-  jpeg_aspect_1_by_1
-};
-
-struct image_settings {
-  image_format format;
-  jpeg_quality quality;
-  jpeg_size size;
-  jpeg_aspect aspect;
-  uint32_t space_on_sdcard;
-};
-
-std::string to_string(image_settings const& image);
+std::string to_string(property_codes property, uint32_t value);
+bool is_known_property_value(property_codes property, uint32_t value);
 
 struct auto_focus_point {
+  auto_focus_point(uint32_t val) : x(val>>8), y(val) {}
   uint8_t x;
   uint8_t y;
 };
-
 std::string to_string(auto_focus_point const& focus_point);
 
-enum film_simulation_mode {
-  film_simulation_standard = 1,
-  film_simulation_vivid = 2,
-  film_simulation_soft = 3,
-  film_simulation_monochrome = 4,
-  film_simulation_sepia = 5,
-  film_simulation_pro_neg_hi = 6,
-  film_simulation_pro_neg_std = 7,
-  film_simulation_monochrome_y_filter = 8,
-  film_simulation_monochrome_r_filter = 9,
-  film_simulation_monochrome_g_filter = 10,
-  film_simulation_classic_chrome = 11,
-  film_simulation_count
+struct f_number {
+  f_number(uint32_t val) : value(val) {}
+  operator uint32_t() const { return value; }
+  uint32_t value = 0;
+};
+std::string to_string(f_number aperture);
+
+struct iso_level {
+  iso_level(uint32_t val) : value(val) {}
+  operator uint32_t() const { return value; }
+  uint32_t value;
+};
+std::string to_string(iso_level iso);
+
+struct shutter_speed {
+  shutter_speed(uint32_t val) : value(val) {}
+  operator uint32_t() const { return value; }
+  uint32_t value;
+};
+std::string to_string(shutter_speed speed);
+
+struct current_properties {
+  std::vector<property_codes> camera_order;
+  std::map<property_codes, uint32_t> values;
 };
 
-char const* to_string(film_simulation_mode film_simulation);
+void print(current_properties& settings);
 
-enum white_balance_mode {
-  white_balance_auto = 2,
-  white_balance_fine = 4,
-  white_balance_incandescent = 6,
-  white_balance_fluorescent_1 = 0x8001,
-  white_balance_fluorescent_2 = 0x8002,
-  white_balance_fluorescent_3 = 0x8003,
-  white_balance_shade = 0x8006,
-  white_balance_underwater = 0x800A,
-  white_balance_temperature = 0x800B,
-  white_balance_custom = 0x800C 
-};
-
-char const* to_string(white_balance_mode white_balance);
-bool parse_white_balance_mode(uint16_t const value, white_balance_mode& mode);
-
-enum shutter_type {
-  mechanical_shutter,
-  electronic_shutter
-};
-char const* to_string(shutter_type shutter);
-
-struct camera_settings {
-  uint32_t iso;
-  bool one_div_shutter_speed;
-  uint32_t shutter_speed;
-  white_balance_mode white_balance;
-  film_simulation_mode film_simulation;
-  auto_focus_point focus_point;
-  image_settings image;
-  aperture_f_number aperture;
-  int32_t exposure;
-  shutter_type shutter;
-  int32_t battery_level;
-};
-
-inline uint64_t shutter_speed_microseconds(camera_settings const& settings) {
-  double msec = settings.one_div_shutter_speed ? 1000000.0 / settings.shutter_speed : settings.shutter_speed;
-  return msec * 1000.0;
-}
-
-void print(camera_settings const& settings);
-
+double ss_to_microsec(uint32_t raw_speed);
 }  // namespace fcwt
 
 #endif  // FUJI_CAM_WIFI_TOOL_SETTINGS_HPP
