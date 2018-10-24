@@ -63,27 +63,23 @@ std::string to_string(property_codes property)
                 flag = "(current)"; \
             printf("\t\t%s %s\n", value_string, flag.c_str())
 
+static int cap_value_to_int(data_type dt, uint32_t value)
+{
+	switch (dt)
+	{
+	case data_type_int8: return static_cast<int8_t>(value);
+	case data_type_int16: return static_cast<int16_t>(value);
+	default:
+		return static_cast<int>(value);
+	}
+}
+
 void print(std::vector<capability> const& caps) {
     printf("camera capabilities:\n");
 
     for (capability cap : caps) {
-        if (!is_known_property(cap.property_code)) {
-            printf("\t%s: %s\n", to_string(property_unknown).c_str(), hex_format(&cap.property_code, 2).c_str());
-            continue;
-        }
-
         printf("\t%s%s:\n", to_string(cap.property_code).c_str(), cap.get_set ? "" : " (immutable)");
-/*
-        if (cap.form_flag == 1) {
-            printf("\t\t    min: %d\n", cap.min_value);
-            printf("\t\t    max: %d\n", cap.max_value);
-            printf("\t\t    step: %d\n", cap.step_size);
-        } else if (cap.form_flag == 2) {
-            for (uint16_t i = 0; i < cap.count; ++i) {
-                printf("\t\t%d\n", cap.values[i]);
-            }
-        }
-*/
+
         if (cap.property_code == property_exposure_compensation) {
             for (uint16_t i = 0; i < cap.count; ++i) {
                 int16_t raw_mode = static_cast<int16_t>(cap.values[i]);
@@ -123,8 +119,15 @@ void print(std::vector<capability> const& caps) {
             shutter_speed const spd { cap.current_value };
             printf("\t\tvalue: %s\n", to_string(spd).c_str());
 
-        } else if (cap.property_code == property_focus_point) {
-
+        } else {
+			if (cap.form_flag == 1) {
+				printf("\t\t    min: %d\n", cap_value_to_int(cap.data_type, cap.min_value));
+				printf("\t\t    max: %d\n", cap_value_to_int(cap.data_type, cap.max_value));
+				printf("\t\t    step: %d\n", cap_value_to_int(cap.data_type, cap.step_size));
+			} else if (cap.form_flag == 2) {
+				for (uint16_t i = 0; i < cap.count; ++i)
+					printf("\t\t%d\n", cap_value_to_int(cap.data_type, cap.values[i]));
+			}
         }
     }
 }

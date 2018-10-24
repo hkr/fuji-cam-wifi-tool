@@ -157,8 +157,8 @@ uint8_t message10[] =
 
 capability parse_capability(uint8_t const* data, size_t const size) {
     uint16_t count = capability_max_values;
-    uint8_t value_size = 2;
-    uint8_t offset = 0;
+    size_t value_size = 1;
+	size_t offset = 0;
     uint32_t tmp;
     capability cap;
 
@@ -171,10 +171,7 @@ capability parse_capability(uint8_t const* data, size_t const size) {
     memcpy(&cap.data_type, data + offset, 2);
     offset += 2;
 
-    if (cap.data_type == 3 || cap.data_type == 4)
-        value_size = 2;
-    else if (cap.data_type == 6)
-        value_size = 4;
+	value_size = data_type_size(cap.data_type);
 
     // Read GetSet flag
     memcpy(&cap.get_set, data + offset, 1);
