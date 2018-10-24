@@ -1,5 +1,5 @@
 # fuji-cam-wifi-tool
-Trying to reverse-engineer the Fuji X-T10 wifi remote control protocol
+Trying to reverse-engineer the wifi remote control protocol used by Fuji X series cameras
 
 ## Build instructions
 
