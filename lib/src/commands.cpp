@@ -424,6 +424,8 @@ bool shutter(native_socket const sockfd, native_socket const sockfd2, const char
 }
 
 bool current_settings(native_socket sockfd, current_properties& settings) {
+  if (sockfd <= 0) return false;
+
   auto const msg = generate<status_request_message>();
   fuji_send(sockfd, &msg, sizeof(msg));
   uint8_t buf[1024];
