@@ -310,7 +310,7 @@ void print(current_properties& settings) {
         } else if (is_known_property_value(key, value)) {
             printf("%s\n", to_string(key, value).c_str());
         } else {
-            printf("%s\n", unknown_value_str);
+            printf("%s (%d 0x%x)\n", unknown_value_str, value, value);
         }
     }
 }
