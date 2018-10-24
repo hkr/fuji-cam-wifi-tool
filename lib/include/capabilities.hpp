@@ -71,8 +71,10 @@ inline size_t data_type_size(data_type dt)
 	case data_type_int32:
 	case data_type_uint32:
 		return 4;
+	default:
+	case data_type_unknown:
+		return 0;
 	}
-	return 0;
 }
 
 struct capability {
