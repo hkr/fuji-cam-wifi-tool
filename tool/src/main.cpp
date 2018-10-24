@@ -257,6 +257,8 @@ int main(int const argc, char const* argv[]) {
       case command::info: {
         if (current_settings(sockfd, settings))
           print(settings);
+        else
+          log(LOG_ERROR, "Failed to fetch camera settings");
 
       } break;
 
