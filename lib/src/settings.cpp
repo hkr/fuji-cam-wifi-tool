@@ -69,6 +69,12 @@ const char* const unknown_value_str = "== Unknown value! ==";
 #define BATTERY_ONE_BAR  2
 #define BATTERY_TWO_BAR  3
 #define BATTERY_FULL  4
+#define BATTERY_126S_CRITICAL  6
+#define BATTERY_126S_ONE_BAR  7
+#define BATTERY_126S_TWO_BAR  8
+#define BATTERY_126S_THREE_BAR  9
+#define BATTERY_126S_FOUR_BAR  10
+#define BATTERY_126S_FULL  11
 #define FLASH_AUTO  1
 #define FLASH_OFF  2
 #define FLASH_FILL  3
@@ -201,6 +207,12 @@ const std::map<property_codes, std::map<uint16_t, const char *>> property_value_
         { BATTERY_ONE_BAR, "One bar" },
         { BATTERY_TWO_BAR, "Two bars" },
         { BATTERY_FULL, "Full" },
+		{ BATTERY_126S_CRITICAL, "Critical" },
+		{ BATTERY_126S_ONE_BAR, "One bar" },
+        { BATTERY_126S_TWO_BAR, "Two bars" },
+        { BATTERY_126S_THREE_BAR, "Three bars" },
+        { BATTERY_126S_FOUR_BAR, "Four bars" },
+        { BATTERY_126S_FULL, "Full" },
    }},
    { property_unknown, {
         { 0, unknown_value_str },
