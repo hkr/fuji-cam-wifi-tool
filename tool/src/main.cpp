@@ -84,48 +84,81 @@ void image_stream_main(std::atomic<bool>& flag) {
   }
 }
 
-char const* commandStrings[] = {"connect", "shutter", "stream",
-                                "info", "set_iso", "set_aperture", "aperture",
-                                "shutter_speed", "set_shutter_speed",
-                                "white_balance", "current_settings",
-                                "film_simulation", "timer", "flash",
-                                "exposure_compensation", "set_exposure_compensation",
-                                "focus_point", "unlock_focus",
+char const* usage =
+  "Usage:\n"
+  "    help|connect|info|shutter|focus-unlock\n"
+  "    increment|decrement TARGET\n"
+  "    set TARGET VALUE1 [VALUE2]\n"
+  "    stream [cv]\n"
+  "TARGET:\n"
+  "    iso:           takes an integer value (e.g. 200)\n"
+  "    f-number:      takes a float value (e.g. 3.5)\n"
+  "    focus-point:   takes a pair of values denoting the focus point coordinates X and Y (e.g. 5 5)\n"
+  "    shutter-speed: takes a value of the form N/M or N (e.g. 1/20, 3)\n"
+  "    exposure-compensation:\n"
+  "                   takes a float value (e.g. 1.3)\n"
+  "    white-balance|film-simulation|self-timer|flash:\n"
+  "                   takes an integer value. Value is one of the values in camera properties\n";
+
+char const* completion_strings[] = {
+  "connect",
+  "info",
+  "help",
+  "shutter",
+  "increment f-number",
+  "increment shutter-speed",
+  "increment exposure-compensation",
+  "decrement f-number",
+  "decrement shutter-speed",
+  "decrement exposure-compensation",
+  "set iso",
+  "set f-number",
+  "set shutter-speed",
+  "set exposure-compensation",
+  "set white-balance",
+  "set film-simulation",
+  "set self-timer",
+  "set flash",
+  "set focus-point",
+  "focus-unlock",
+  "stream",
 #ifdef WITH_OPENCV
-                                "stream_cv",
+  "stream cv",
 #endif
+  NULL
+};
+
+char const* commandStrings[] = {
+  "connect", "info", "help", "shutter", "increment",
+  "decrement", "set", "focus-unlock", "stream", NULL
 };
 
 enum class command {
   connect,
-  shutter,
-  stream,
   info,
-  set_iso,
-  set_aperture,
-  aperture,
-  shutter_speed,
-  set_shutter_speed,
-  white_balance,
-  current_settings,
-  film_simulation,
-  timer,
-  flash,
-  exposure_compensation,
-  set_exposure_compensation,
-  focus_point,
-  unlock_focus,
-#ifdef WITH_OPENCV
-  stream_cv,
-#endif
+  help,
+  shutter,
+  increment,
+  decrement,
+  set,
+  focus_unlock,
+  stream,
   unknown,
   count = unknown
 };
 
 static void completion(char const* buf, linenoiseCompletions* lc) {
-  for (int i = 0; i < static_cast<int>(command::count); ++i) {
-    char const* const cmd = commandStrings[i];
-    if (strstr(cmd, buf) == cmd) linenoiseAddCompletion(lc, cmd);
+  char const* pos = strchr(buf, ' ');
+  if (pos == NULL) {
+    for (int i = 0; commandStrings[i] != NULL; ++i) {
+      if (strncmp(buf, commandStrings[i], strlen(buf)) == 0)
+        linenoiseAddCompletion(lc, commandStrings[i]);
+    }
+  } else {
+    for (int i = 0; completion_strings[i] != NULL; ++i) {
+      if (strncmp(buf, completion_strings[i], strlen(buf)) == 0)
+        linenoiseAddCompletion(lc, completion_strings[i]);
+    }
   }
 }
 
@@ -138,9 +171,9 @@ bool getline(std::string& line) {
   return true;
 }
 
-command parse_command(std::string const& line) {
+command parse_command(std::string const& cmd) {
   for (int i = 0; i < static_cast<int>(command::count); ++i) {
-    if (line == commandStrings[i]) return static_cast<command>(i);
+    if (cmd == commandStrings[i]) return static_cast<command>(i);
   }
 
   return command::unknown;
@@ -190,17 +223,24 @@ int main(int const argc, char const* argv[]) {
   std::string line;
   while (getline(line)) {
     linenoiseHistoryAdd(line.c_str());
-    auto const splitLine = split(line);
-    if (splitLine.empty()) continue;
+    auto const args = split(line);
+    if (args.empty()) continue;
 
-    command cmd = parse_command(splitLine[0]);
+    bool decrement = false;
+    bool success = false;
+
+    command cmd = parse_command(args[0]);
     switch (cmd) {
+      case command::help: {
+        printf(usage);
+      } break;
+
       case command::connect: {
         if (sockfd <= 0) {
           sockfd = connect_to_camera(control_server_port);
-          if (!init_control_connection(sockfd, "HackedClient", &caps))
-            log(LOG_ERROR, "failure\n");
-          else {
+          if (!init_control_connection(sockfd, "HackedClient", &caps)){
+            log(LOG_ERROR, "Failed to initialize control channel");
+          } else {
             log(LOG_INFO, "Received camera capabilities");
             print(caps);
             if (current_settings(sockfd, settings)) {
@@ -210,243 +250,186 @@ int main(int const argc, char const* argv[]) {
             sockfd2 = connect_to_camera(async_response_server_port);
           }
         } else {
-          log(LOG_INFO, "already connected\n");
+          log(LOG_INFO, "already connected");
         }
       } break;
-      case command::shutter: {
-        if (!shutter(sockfd, sockfd2)) log(LOG_ERROR, "failure\n");
-
-      } break;
-
-      case command::stream: {
-        imageStreamThread =
-            std::thread(([&]() { image_stream_main(imageStreamFlag); }));
-      } break;
-
-#ifdef WITH_OPENCV
-      case command::stream_cv: {
-        imageStreamCVThread =
-            std::thread(([&]() { image_stream_cv_main(imageStreamFlag); }));
-      } break;
-#endif
 
       case command::info: {
         if (current_settings(sockfd, settings))
           print(settings);
+        else
+          log(LOG_ERROR, "Failed to fetch camera settings");
+
       } break;
 
-      case command::set_iso: {
-        if (splitLine.size() > 1) {
-          unsigned long iso = std::stoul(splitLine[1], 0, 0);
-          log(LOG_DEBUG, string_format("%s(%lu)", splitLine[0].c_str(), iso));
-          if (update_setting(sockfd, property_iso, iso)) {
-            if (current_settings(sockfd, settings))
-              print(settings);
-          } else {
-            log(LOG_ERROR, string_format("Failed to set ISO %lu", iso));
-          }
+      case command::shutter: {
+        if (!shutter(sockfd, sockfd2))
+          log(LOG_ERROR, "Failed to release shutter");
+
+      } break;
+
+      case command::stream: {
+        if (args.size() == 1)
+          imageStreamThread =
+              std::thread(([&]() { image_stream_main(imageStreamFlag); }));
+
+#ifdef WITH_OPENCV
+        else if (args[1].compare("cv") == 0)
+          imageStreamCVThread =
+              std::thread(([&]() { image_stream_cv_main(imageStreamFlag); }));
+#endif
+      } break;
+
+      case command::set: {
+        if (args.size() < 3) {
+          printf(usage);
+          break;
         }
-      } break;
 
-      case command::set_aperture: {
-        if (splitLine.size() > 1) {
-          uint32_t const aperture = static_cast<uint32_t>(std::stod(splitLine[1]) * 100.0);
-          if (aperture > 0 && aperture < 6400 && 
-              current_settings(sockfd, settings) && settings.values[property_aperture] > 0 &&
-              aperture != settings.values[property_aperture]) {
-            const fnumber_update_direction direction = aperture < settings.values[property_aperture] ? fnumber_decrement : fnumber_increment;
-            uint32_t last_aperture = 0;
+        if (args[1].compare("iso") == 0) {
+          unsigned long value = std::stoul(args[2], 0, 0);
+          success = update_setting(sockfd, property_iso, value);
+
+        } else if (args[1].compare("white-balance") == 0) {
+          uint32_t const value = std::stoi(args[2], 0, 0);
+          if (is_known_property_value(property_white_balance, value))
+            success = update_setting(sockfd, property_white_balance, value);
+
+        } else if (args[1].compare("film-simulation") == 0) {
+          uint32_t const value = std::stoi(args[2], 0, 0);
+          if (is_known_property_value(property_film_simulation, value))
+            success = update_setting(sockfd, property_film_simulation, value);
+
+        } else if (args[1].compare("flash") == 0) {
+          uint32_t const value = std::stoi(args[2], 0, 0);
+          if (is_known_property_value(property_flash, value))
+            success = update_setting(sockfd, property_flash, value);
+
+        } else if (args[1].compare("self-timer") == 0) {
+          uint32_t const value = std::stoi(args[2], 0, 0);
+          if (is_known_property_value(property_self_timer, value))
+            success = update_setting(sockfd, property_self_timer, value);
+
+        } else if (args[1].compare("f-number") == 0) {
+          uint32_t const value = static_cast<uint32_t>(std::stod(args[2]) * 100.0);
+          if (current_settings(sockfd, settings) && settings.values[property_aperture] > 0 &&
+              value != settings.values[property_aperture]) {
+            const fnumber_update_direction direction = value < settings.values[property_aperture] ? fnumber_decrement : fnumber_increment;
+            uint32_t last_value = 0;
+
             do {
-              last_aperture = settings.values[property_aperture];
-              if (!update_setting(sockfd, direction))
+              last_value = settings.values[property_aperture];
+              success = update_setting(sockfd, direction);
+              if (!success)
                 break;
             } while(current_settings(sockfd, settings) && 
-                    settings.values[property_aperture] != last_aperture && 
-                    aperture != settings.values[property_aperture] &&
-                    direction == (aperture < settings.values[property_aperture] ? fnumber_decrement : fnumber_increment));
-            print(settings);
+                    settings.values[property_aperture] != last_value && 
+                    value != settings.values[property_aperture] &&
+                    direction == (value < settings.values[property_aperture] ? fnumber_decrement : fnumber_increment));
           } 
-        }
-      } break;
 
-      case command::aperture: {
-        if (splitLine.size() > 1) {
-          int aperture_stops = std::stoi(splitLine[1], 0, 0);
-          log(LOG_DEBUG, string_format("%s(%i)", splitLine[0].c_str(), aperture_stops));
-          if (aperture_stops != 0) {
-            if (update_setting(sockfd, aperture_stops < 0 ? fnumber_decrement : fnumber_increment)) {
-              if (current_settings(sockfd, settings))
-                print(settings);
-            } else {
-              log(LOG_ERROR, string_format("Failed to adjust aperture %i", aperture_stops));
-            }
-          }
-        }
-      } break;
-
-      case command::shutter_speed: {
-        if (splitLine.size() > 1) {
-          int shutter_stops = std::stoi(splitLine[1], 0, 0);
-          log(LOG_DEBUG, string_format("%s(%i)", splitLine[0].c_str(), shutter_stops));
-          if (shutter_stops != 0) {
-            if (update_setting(sockfd, shutter_stops < 0 ? ss_decrement : ss_increment)) {
-              if (current_settings(sockfd, settings))
-                print(settings);
-            } else {
-              log(LOG_ERROR, string_format("Failed to adjust shutter speed %i", shutter_stops));
-            }
-          }
-        }
-      } break;
-
-      case command::set_shutter_speed: {
-        if (splitLine.size() > 1) {
+        } else if (args[1].compare("shutter-speed") == 0) {
           double nom, denom;
-          int res = std::sscanf(splitLine[1].c_str(), "%lf/%lf", &nom, &denom);
-          if (res > 0) {
-            double new_speed = (res == 1 ? nom : nom / denom) * 1000000.0;
-            if (current_settings(sockfd, settings) && settings.values[property_shutter_speed] > 0 &&
-                new_speed != ss_to_microsec(settings.values[property_shutter_speed])) {
-              const ss_update_direction direction = new_speed < ss_to_microsec(settings.values[property_shutter_speed]) ? ss_increment : ss_decrement;
-              uint64_t last_speed = 0;
-              do {
-                last_speed = ss_to_microsec(settings.values[property_shutter_speed]);
-                if (!update_setting(sockfd, direction))
-                  break;
-              } while(current_settings(sockfd, settings) &&
-                      ss_to_microsec(settings.values[property_shutter_speed]) != last_speed &&
-                      new_speed != ss_to_microsec(settings.values[property_shutter_speed]) &&
-                      direction == (new_speed < ss_to_microsec(settings.values[property_shutter_speed]) ? ss_increment : ss_decrement));
-              print(settings);
-            }
-          }
-        }
-      } break;
-
-      case command::exposure_compensation: {
-        if (splitLine.size() > 1) {
-          int direction = std::stoi(splitLine[1], 0, 0);
-          log(LOG_DEBUG, string_format("%s(%i)", splitLine[0].c_str(), direction));
-          if (direction != 0) {
-            if (update_setting(sockfd, direction < 0 ? exp_decrement : exp_increment)) {
-              if (current_settings(sockfd, settings))
-                print(settings);
-            } else {
-              log(LOG_ERROR, string_format("Failed to adjust exposure correction %i", direction));
-            }
-          }
-        }
-      } break;
-
-      case command::set_exposure_compensation: {
-        if (splitLine.size() > 1) {
-          uint32_t const exp = static_cast<uint32_t>(std::stod(splitLine[1]) * 1000.0);
-          if (current_settings(sockfd, settings) && exp != settings.values[property_exposure_compensation]) {
-            const exp_update_direction direction = exp < settings.values[property_exposure_compensation] ? exp_decrement : exp_increment;
-            uint32_t last_exp = 0;
-            do {
-              last_exp = settings.values[property_exposure_compensation];
-              if (!update_setting(sockfd, direction))
-                break;
-            } while(current_settings(sockfd, settings) && 
-                    settings.values[property_exposure_compensation] != last_exp && 
-                    exp != settings.values[property_exposure_compensation] &&
-                    direction == (exp < settings.values[property_exposure_compensation] ? exp_decrement : exp_increment));
-            print(settings);
-          } 
-        }
-      } break;
-
-      case command::white_balance: {
-        if (splitLine.size() > 1) {
-          uint32_t const value = std::stoi(splitLine[1], 0, 0);
-          log(LOG_DEBUG, string_format("%s(%d)", splitLine[0].c_str(), value));
-          if (is_known_property_value(property_white_balance, value) && update_setting(sockfd, property_white_balance, value)) {
-            if (current_settings(sockfd, settings))
-              print(settings);
-          } else {
-            log(LOG_ERROR, string_format("Failed to set white_balance %d", value));
-          }
-        }
-      } break;
-
-      case command::film_simulation: {
-        if (splitLine.size() > 1) {
-          uint32_t const value = std::stoi(splitLine[1], 0, 0);
-          log(LOG_DEBUG, string_format("%s (%d)", splitLine[0].c_str(), value));
-
-          if (is_known_property_value(property_film_simulation, value) && update_setting(sockfd, property_film_simulation, value)) {
-            if (current_settings(sockfd, settings))
-              print(settings);
-          } else {
-            log(LOG_ERROR, string_format("Failed to set film simulation %d", value));
-          }
-        }
-      } break;
-
-      case command::flash: {
-        if (splitLine.size() > 1) {
-          uint32_t const value = std::stoi(splitLine[1], 0, 0);
-          log(LOG_DEBUG, string_format("%s (%d)", splitLine[0].c_str(), value));
-
-          if (is_known_property_value(property_flash, value) && update_setting(sockfd, property_flash, value)) {
-            if (current_settings(sockfd, settings))
-              print(settings);
-          } else {
-            log(LOG_ERROR, string_format("Failed to set flash mode  %d", value));
-          }
-        }
-      } break;
-
-      case command::timer: {
-        if (splitLine.size() > 1) {
-          uint32_t const value = std::stoi(splitLine[1], 0, 0);
-          log(LOG_DEBUG, string_format("%s (%d)", splitLine[0].c_str(), value));
-
-          if (is_known_property_value(property_self_timer, value) && update_setting(sockfd, property_self_timer, value)) {
-            if (current_settings(sockfd, settings))
-              print(settings);
-          } else {
-            log(LOG_ERROR, string_format("Failed to set timer %d", value));
-          }
-        }
-      } break;
-
-      case command::focus_point: {
-        if (splitLine.size() == 3) {
-          auto_focus_point point = 0;
-          point.x = std::stoi(splitLine[1], 0, 0);
-          point.y = std::stoi(splitLine[2], 0, 0);
-          if (point.x * point.y <= 0) {
+          int res = std::sscanf(args[2].c_str(), "%lf/%lf", &nom, &denom);
+          if (res <= 0) {
             log(LOG_INFO, "Could not parse provided value");
             break;
           }
-
-          if (update_setting(sockfd, point)) {
-            if (current_settings(sockfd, settings))
-              print(settings);
-          } else {
-            log(LOG_ERROR, string_format("Failed to adjust focus point"));
+          double value = (res == 1 ? nom : nom / denom) * 1000000.0;
+          if (current_settings(sockfd, settings) && settings.values[property_shutter_speed] > 0 &&
+              value != ss_to_microsec(settings.values[property_shutter_speed])) {
+            const ss_update_direction direction = value < ss_to_microsec(settings.values[property_shutter_speed]) ? ss_increment : ss_decrement;
+            uint64_t last_speed = 0;
+            do {
+              last_speed = ss_to_microsec(settings.values[property_shutter_speed]);
+              success = update_setting(sockfd, direction);
+              if (!success)
+                break;
+            } while(current_settings(sockfd, settings) &&
+                    ss_to_microsec(settings.values[property_shutter_speed]) != last_speed &&
+                    ss_to_microsec(settings.values[property_shutter_speed]) != value &&
+                    direction == (value < ss_to_microsec(settings.values[property_shutter_speed]) ? ss_increment : ss_decrement));
           }
+
+        } else if (args[1].compare("exposure-compensation") == 0) {
+          uint32_t const value = static_cast<uint32_t>(std::stod(args[2]) * 1000.0);
+          if (current_settings(sockfd, settings) && value != settings.values[property_exposure_compensation]) {
+            const exp_update_direction direction = value < settings.values[property_exposure_compensation] ? exp_decrement : exp_increment;
+            uint32_t last_value = 0;
+            do {
+              last_value = settings.values[property_exposure_compensation];
+              success = update_setting(sockfd, direction);
+              if (!success)
+                break;
+            } while(current_settings(sockfd, settings) && 
+                    settings.values[property_exposure_compensation] != last_value && 
+                    value != settings.values[property_exposure_compensation] &&
+                    direction == (value < settings.values[property_exposure_compensation] ? exp_decrement : exp_increment));
+          } 
+
+        } else if (args[1].compare("focus-point") == 0 && args.size() == 4) {
+          auto_focus_point point = 0;
+          point.x = std::stoi(args[2], 0, 0);
+          point.y = std::stoi(args[3], 0, 0);
+          if (point.x * point.y <= 0) {
+            log(LOG_INFO, "Could not parse provided point");
+            break;
+          }
+
+          success = update_setting(sockfd, point);
+
+        } else {
+            printf(usage);
+            break;
+        }
+
+        if (success) {
+          if (current_settings(sockfd, settings))
+            print(settings);
+        } else {
+          log(LOG_ERROR, string_format("Failed to set %s to %s", args[1].c_str(), args[2].c_str()));
         }
       } break;
 
-      case command::unlock_focus: {
-        if (splitLine.size() == 1) {
-          if (unlock_focus(sockfd)) {
-            if (current_settings(sockfd, settings))
-              print(settings);
-          } else {
-            log(LOG_ERROR, string_format("Failed to unlock focus"));
-          }
+      case command::decrement:
+        decrement = true;
+      case command::increment: {
+        if (args.size() != 2) {
+          printf(usage);
+          break;
+        }
+
+        if (args[1].compare("f-number") == 0)
+          success = update_setting(sockfd, decrement ? fnumber_decrement : fnumber_increment);
+
+        else if (args[1].compare("shutter-speed") == 0)
+          success = update_setting(sockfd, decrement ? ss_decrement : ss_increment);
+
+        else if (args[1].compare("exposure-compensation") == 0)
+          success = update_setting(sockfd, decrement ? exp_decrement : exp_increment);
+
+        else {
+            printf(usage);
+            break;
+        }
+
+        if (success) {
+          if (current_settings(sockfd, settings))
+            print(settings);
+        } else {
+          log(LOG_ERROR, string_format("Failed to %s %s", decrement ? "decrement":"increment", args[1].c_str()));
         }
       } break;
 
-      case command::current_settings: {
-        if (current_settings(sockfd, settings))
-          print(settings);
-        else
-          log(LOG_ERROR, "fail");
+      case command::focus_unlock: {
+        success = unlock_focus(sockfd);
+
+        if (success) {
+          if (current_settings(sockfd, settings))
+            print(settings);
+        } else {
+          log(LOG_ERROR, string_format("Failed to unlock camera focus"));
+        }
       } break;
 
       default: { log(LOG_ERROR, string_format("Unreconized command: %s", line.c_str())); }

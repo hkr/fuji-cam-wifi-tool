@@ -19,9 +19,24 @@ cmake --build .
 
 The tool fuji_cam_wifi_tool is an interactive shell (based on [linenoise](https://github.com/arangodb/linenoise-ng)) that can be used to send commands to the camera.
 At this time it is very limited and mostly undocumented.
-Supported commands are `connect`, `shutter`, `stream`, `info`, `set_iso`, `aperture`, `white_balance`, `shutter_speed`.
-I suggest to look at the code.
-
+Supported commands are:
+```
+fcwt> help
+Usage:
+    help|connect|info|shutter|focus-unlock
+    increment|decrement TARGET
+    set TARGET VALUE1 [VALUE2]
+    stream [cv]
+TARGET:
+    iso:           takes an integer value (e.g. 200)
+    f-number:      takes a float value (e.g. 3.5)
+    focus-point:   takes a pair of values denoting the focus point coordinates X and Y (e.g. 5 5)
+    shutter-speed: takes a value of the form N/M or N (e.g. 1/20, 3)
+    exposure-compensation:
+                   takes a float value (e.g. 1.3)
+    white-balance|film-simulation|self-timer|flash:
+                   takes an integer value. Value is one of the values in camera properties
+```
 Mac OS X:
 ```
 ./tool/fuji_cam_wifi_tool
