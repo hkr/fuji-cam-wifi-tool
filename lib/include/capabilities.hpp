@@ -37,7 +37,7 @@ enum property_codes: uint16_t {
 bool is_known_property(uint16_t value);
 std::string to_string(property_codes property);
 
-enum data_type : uint16_t {
+enum data_types : uint16_t {
 	data_type_unknown = 0,
 	data_type_int8 = 1,
 	data_type_uint8 = 2,
@@ -47,7 +47,7 @@ enum data_type : uint16_t {
 	data_type_uint32 = 6
 };
 
-inline bool is_signed(data_type dt)
+inline bool is_signed(data_types dt)
 {
 	switch (dt) {
 	default:
@@ -59,7 +59,7 @@ inline bool is_signed(data_type dt)
 	}
 }
 
-inline size_t data_type_size(data_type dt)
+inline size_t data_type_size(data_types dt)
 {
 	switch (dt) {
 	case data_type_int8:
@@ -79,7 +79,7 @@ inline size_t data_type_size(data_type dt)
 
 struct capability {
   property_codes property_code = property_unknown;
-  data_type data_type = data_type_unknown;
+  data_types data_type = data_type_unknown;
   uint8_t get_set = 0;
   uint32_t default_value = 0;
   uint32_t current_value = 0;

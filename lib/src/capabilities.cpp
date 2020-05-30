@@ -63,7 +63,7 @@ std::string to_string(property_codes property)
                 flag = "(current)"; \
             printf("\t\t%s %s\n", value_string, flag.c_str())
 
-static int cap_value_to_int(data_type dt, uint32_t value)
+static int cap_value_to_int(data_types dt, uint32_t value)
 {
 	switch (dt)
 	{
