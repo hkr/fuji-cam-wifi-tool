@@ -15,6 +15,12 @@ cmake ../fuji-cam-wifi-tool
 cmake --build .
 ```
 
+To build with OpenCV:
+```
+cmake ../fuji-cam-wifi-tool -DWITH_OPENCV=yes
+cmake --build .
+```
+
 ## Run the tool
 
 The tool fuji_cam_wifi_tool is an interactive shell (based on [linenoise](https://github.com/arangodb/linenoise-ng)) that can be used to send commands to the camera.

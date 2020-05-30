@@ -44,7 +44,7 @@ void image_stream_cv_main(std::atomic<bool>& flag) {
 
     int const header = 14;  // not sure what's in the first 14 bytes
     Mat rawData = Mat( 1, receivedBytes, CV_8UC1, &buffer[header]);
-    Mat decodedImage  =  imdecode( rawData , CV_LOAD_IMAGE_COLOR);
+    Mat decodedImage  =  imdecode( rawData , cv::IMREAD_COLOR );
 
     if ( decodedImage.data == NULL )
     {
@@ -214,7 +214,7 @@ int main(int const argc, char const* argv[]) {
         }
       } break;
       case command::shutter: {
-        if (!shutter(sockfd, sockfd2)) log(LOG_ERROR, "failure\n");
+        if (!shutter(sockfd, sockfd2, "thumb.jpg")) log(LOG_ERROR, "failure\n");
 
       } break;
 
