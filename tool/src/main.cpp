@@ -34,8 +34,7 @@ sock sockfd;
 
 log_settings log_conf;
 
-#ifdef WITH_OPENCV
-#define WIN_NAME "Display Window"
+current_properties settings;
 
 // On X-T100 at least the auto-focus points are specified with these ranges.
 // Not sure how we get the ranges from the camera..
@@ -46,41 +45,42 @@ log_settings log_conf;
 #define POINTS_X 0xd
 #define POINTS_Y 0x7
 
-Rect cur_focus(0,0,0,0);
+auto_focus_point requested_focus_point = 0;
+bool set_focus(int x, int y) {
+    if( x < 1 || x > POINTS_X || y < 1 || y > POINTS_Y )
+        return false;
+
+    // TODO: Refuse if not in AF-S or recording?
+
+    requested_focus_point.x = x;
+    requested_focus_point.y = y;
+
+    log(LOG_DEBUG, string_format("Set focus point %d x %d", x, y));
+
+    if (update_setting(sockfd, requested_focus_point)) {
+        // TODO: Decode if it got focused or not successfully (red/green bracket)
+        if (current_settings(sockfd, settings))
+          print(settings);
+    } else {
+        log(LOG_ERROR, string_format("Failed to adjust focus point"));
+        return false;
+    }
+    return true;
+}
+
+#ifdef WITH_OPENCV
+#define WIN_NAME "Display Window"
 
 static void onMouse( int event, int x, int y, int, void* )
 {
     if( event != EVENT_LBUTTONDOWN )
         return;
 
-    // TODO: Refuse if not AF-S
-
     Rect win_size = getWindowImageRect(WIN_NAME);
     float x_perc = (float)x / win_size.width;
     float y_perc = (float)y / win_size.height;
 
-    auto_focus_point point = 0;
-    point.x = x_perc * (2+POINTS_X);
-    point.y = y_perc * (2+POINTS_Y);
-
-    if( point.x < 1 || point.x > POINTS_X || point.y < 1 || point.y > POINTS_Y )
-        return;
-
-    cur_focus.x = (float)point.x / (2+POINTS_X) * win_size.width;
-    cur_focus.y = (float)point.y / (2+POINTS_Y) * win_size.height;
-    cur_focus.width = win_size.width / (2+POINTS_X);
-    cur_focus.height = win_size.height / (2+POINTS_Y);
-
-    log(LOG_DEBUG, string_format("Set focus point %d x %d (%f%% x %f%%)", point.x, point.y, x_perc, y_perc));
-
-    if (update_setting(sockfd, point)) {
-        // TODO: Decode if it got focused or not successfully (red/green bracket)
-        current_properties settings;
-        if (current_settings(sockfd, settings))
-          print(settings);
-    } else {
-        log(LOG_ERROR, string_format("Failed to adjust focus point"));
-    }
+    set_focus(x_perc * (2+POINTS_X), y_perc * (2+POINTS_Y));
 }
 
 //#define CV_TEST
@@ -114,6 +114,20 @@ int setup_v4l2(std::string v4l2lo_dev, Mat image) {
     }
 
     return v4l2lo;
+}
+
+void draw_focus_point(Mat &displayImage, auto_focus_point focus_point, Scalar color) {
+    if( focus_point.x > 0 && focus_point.y > 0 ) {
+        Rect win_size = getWindowImageRect(WIN_NAME);
+
+        Rect focus;
+        focus.x = (float)focus_point.x / (2+POINTS_X) * win_size.width;
+        focus.y = (float)focus_point.y / (2+POINTS_Y) * win_size.height;
+        focus.width = win_size.width / (2+POINTS_X);
+        focus.height = win_size.height / (2+POINTS_Y);
+
+        rectangle(displayImage, focus, color);
+    }
 }
 
 void image_stream_cv_main(std::atomic<bool>& flag, std::string v4l2lo_dev = "") {
@@ -151,8 +165,12 @@ void image_stream_cv_main(std::atomic<bool>& flag, std::string v4l2lo_dev = "") 
         log(LOG_WARN, "couldn't decode image");
     }
     Mat displayImage = decodedImage.clone();
-    if( cur_focus.height > 0 )
-        rectangle(displayImage, cur_focus, Scalar(255, 255, 255));
+
+    if( settings.values[property_focus_lock] == FOCUS_LOCK_ON ) {
+        draw_focus_point(displayImage, requested_focus_point, Scalar(128, 128, 128));
+        draw_focus_point(displayImage, settings.values[property_focus_point], Scalar(255, 255, 255));
+    }
+
     imshow( WIN_NAME, displayImage );
 
     // Maybe copy to v4l2lo device
@@ -310,7 +328,6 @@ int main(int const argc, char const* argv[]) {
   std::thread imageStreamCVThread;
 #endif
   std::vector<capability> caps;
-  current_properties settings;
 
   std::string line;
   while (getline(line)) {
@@ -544,21 +561,7 @@ int main(int const argc, char const* argv[]) {
 
       case command::focus_point: {
         if (splitLine.size() == 3) {
-          auto_focus_point point = 0;
-          // needs to be set to af-s mode not manual
-          point.x = std::stoi(splitLine[1], 0, 0);
-          point.y = std::stoi(splitLine[2], 0, 0);
-          if (point.x * point.y <= 0) {
-            log(LOG_INFO, "Could not parse provided value");
-            break;
-          }
-
-          if (update_setting(sockfd, point)) {
-            if (current_settings(sockfd, settings))
-              print(settings);
-          } else {
-            log(LOG_ERROR, string_format("Failed to adjust focus point"));
-          }
+          set_focus(std::stoi(splitLine[1], 0, 0), std::stoi(splitLine[2], 0, 0));
         }
       } break;
 
