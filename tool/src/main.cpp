@@ -213,6 +213,7 @@ char const* commandStrings[] = {"connect", "shutter", "stream",
                                 "film_simulation", "timer", "flash",
                                 "exposure_compensation", "set_exposure_compensation",
                                 "focus_point", "unlock_focus",
+                                "start_record", "stop_record",
 #ifdef WITH_OPENCV
                                 "stream_cv",
 #endif
@@ -237,6 +238,8 @@ enum class command {
   set_exposure_compensation,
   focus_point,
   unlock_focus,
+  start_record,
+  stop_record,
 #ifdef WITH_OPENCV
   stream_cv,
 #endif
@@ -286,6 +289,7 @@ std::vector<std::string> split(std::string const& str,
 
 int main(int const argc, char const* argv[]) {
   uint8_t log_level = LOG_DEBUG;
+  uint32_t cur_record_id = 0;
 
   if (argc > 1) {
     std::string arg = argv[1];
@@ -566,6 +570,36 @@ int main(int const argc, char const* argv[]) {
           } else {
             log(LOG_ERROR, string_format("Failed to unlock focus"));
           }
+        }
+      } break;
+
+      case command::start_record: {
+        if( cur_record_id ) {
+            log(LOG_ERROR, string_format("Already recording, issue stop_record first"));
+            break;
+        }
+
+        cur_record_id = start_record(sockfd);
+        if (cur_record_id) {
+            if (current_settings(sockfd, settings))
+              print(settings);
+        } else {
+            log(LOG_ERROR, string_format("Failed to start recording"));
+        }
+      } break;
+
+      case command::stop_record: {
+        if( !cur_record_id ) {
+            log(LOG_ERROR, string_format("Not recording, issue start_record first"));
+            break;
+        }
+
+        if(stop_record(sockfd, cur_record_id)) {
+          cur_record_id = 0;
+          if (current_settings(sockfd, settings))
+              print(settings);
+        } else {
+            log(LOG_ERROR, string_format("Failed to stop recording"));
         }
       } break;
 

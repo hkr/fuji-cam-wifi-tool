@@ -11,6 +11,7 @@ struct registration_message {
   uint8_t const header[24] = {0x01, 0x00, 0x00, 0x00, 0xf2, 0xe4, 0x53, 0x8f, 
                               0xad, 0xa5, 0x48, 0x5d, 0x87, 0xb2, 0x7f, 0x0b, 
                               0xd3, 0xd5, 0xde, 0xd0, 0x02, 0x78, 0xa8, 0xc0};
+                              //0xd3, 0xd5, 0xde, 0xd0, 0x00, 0x00, 0x00, 0x00};
   uint8_t device_name[54] = {};
 };
 
@@ -375,6 +376,30 @@ void terminate_control_connection(native_socket sockfd) {
   fuji_send(sockfd, &terminate, sizeof(terminate));
 }
 
+uint32_t start_record(native_socket const sockfd) {
+  if (sockfd <= 0) return false;
+
+  log(LOG_INFO, "start_record");
+  auto const req = make_static_message(message_type::start_record, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00);
+  bool result = fuji_message(sockfd, req);
+
+  if (!result)
+    return 0;
+
+  return req.id;
+}
+
+bool stop_record(native_socket const sockfd, uint32_t start_id) {
+  if (sockfd <= 0) return false;
+
+  log(LOG_INFO, "stop_record");
+  bool result = fuji_message(sockfd, make_static_message(message_type::stop_record, make_byte_array(start_id)));
+
+  if (!result)
+    return false;
+  return true;
+}
+
 bool shutter(native_socket const sockfd, native_socket const sockfd2, const char* thumbnail) {
   if (sockfd <= 0) return false;
 
@@ -385,7 +410,7 @@ bool shutter(native_socket const sockfd, native_socket const sockfd2, const char
   if (!result)
     return false;
 
-  uint8_t buffer[20 * 1024];
+  uint8_t buffer[1024 * 1024];
   uint32_t receivedBytes = 0;
 
   if (sockfd2) {
@@ -404,6 +429,7 @@ bool shutter(native_socket const sockfd, native_socket const sockfd2, const char
   receivedBytes = fuji_receive(sockfd, buffer);
   log(LOG_INFO, string_format("received %d bytes (thumbnail)", receivedBytes));
   if (thumbnail && sockfd2 && receivedBytes > 8) {
+    log(LOG_INFO, string_format("writing to %s", thumbnail));
     if (FILE* out = fopen(thumbnail, "wb")) {
       fwrite(buffer + 8, receivedBytes - 8, 1, out);
       fclose(out);

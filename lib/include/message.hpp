@@ -24,6 +24,9 @@ enum class message_type : uint16_t {
   full_image = 0x101b,
   camera_remote = 0x101c,  // last command before camera remote works
 
+  start_record = 0x9020,    // start recording
+  stop_record = 0x9021,     // stop recording video, needs the id of the start recording message to be passed as data
+
   camera_last_image = 0x9022,
   focus_point = 0x9026,    // updating focus point position
   focus_unlock = 0x9027,   // unlock the current focus point
