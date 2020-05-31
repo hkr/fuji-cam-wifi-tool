@@ -35,6 +35,7 @@ sock sockfd;
 log_settings log_conf;
 
 current_properties settings;
+std::timed_mutex g_comm_lock;
 
 // On X-T100 at least the auto-focus points are specified with these ranges.
 // Not sure how we get the ranges from the camera..
@@ -80,7 +81,13 @@ static void onMouse( int event, int x, int y, int, void* )
     float x_perc = (float)x / win_size.width;
     float y_perc = (float)y / win_size.height;
 
-    set_focus(x_perc * (2+POINTS_X), y_perc * (2+POINTS_Y));
+    // We are running on display thread
+    if(g_comm_lock.try_lock_for(std::chrono::milliseconds(10))) {
+        set_focus(x_perc * (2+POINTS_X), y_perc * (2+POINTS_Y));
+        g_comm_lock.unlock();
+    } else {
+        log(LOG_ERROR, string_format("Failed to get control mutex"));
+    }
 }
 
 //#define CV_TEST
@@ -336,6 +343,8 @@ int main(int const argc, char const* argv[]) {
     if (splitLine.empty()) continue;
 
     command cmd = parse_command(splitLine[0]);
+
+    const std::lock_guard<std::timed_mutex> lock(g_comm_lock);
     switch (cmd) {
       case command::connect: {
         if (sockfd <= 0) {
@@ -584,7 +593,7 @@ int main(int const argc, char const* argv[]) {
 
         cur_record_id = start_record(sockfd);
         if (cur_record_id) {
-            if (current_settings(sockfd, settings))
+          if (current_settings(sockfd, settings))
               print(settings);
         } else {
             log(LOG_ERROR, string_format("Failed to start recording"));
