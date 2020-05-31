@@ -238,6 +238,7 @@ size_t fuji_receive(native_socket sockfd, void* data, size_t sizeBytes) {
   }
   size -= sizeof(size);
   receive_data(sockfd, data, std::min(sizeBytes, static_cast<size_t>(size)));
+  // if size == 4 and data = 0xffffffff then indicates an error or busy)
   return size;
 }
 

@@ -455,7 +455,7 @@ bool current_settings(native_socket sockfd, current_properties& settings) {
   uint8_t buf[1024];
   size_t receivedBytes = fuji_receive(sockfd, buf);
 
-  if (receivedBytes == 0)
+  if (receivedBytes < 8)
     return false;
 
   log(LOG_DEBUG2, string_format("Status: %zd bytes ", receivedBytes).append(hex_format(buf, receivedBytes)));
