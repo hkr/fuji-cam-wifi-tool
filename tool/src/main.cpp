@@ -111,7 +111,7 @@ int setup_v4l2(std::string v4l2lo_dev, Mat image) {
 
     v.fmt.pix.width = image.cols;
     v.fmt.pix.height = image.rows;
-    v.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24;
+    v.fmt.pix.pixelformat = V4L2_PIX_FMT_BGR24;
     v.fmt.pix.sizeimage = image.total() * image.elemSize();
     t = ioctl(v4l2lo, VIDIOC_S_FMT, &v);
     if( t < 0 ) {
