@@ -20,40 +20,183 @@
 
 #ifdef WITH_OPENCV
 #include <opencv2/opencv.hpp>
+#include <sys/ioctl.h>
+#include <linux/videodev2.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 using namespace cv;
 #endif
 
 namespace fcwt {
 
+sock sockfd;
+
 log_settings log_conf;
 
+current_properties settings;
+std::timed_mutex g_comm_lock;
+
+// On X-T100 at least the auto-focus points are specified with these ranges.
+// Not sure how we get the ranges from the camera..
+//
+// The area around misses a selection of each of those points
+//
+// Needs to be in AF-S mode not manual
+#define POINTS_X 0xd
+#define POINTS_Y 0x7
+
+auto_focus_point requested_focus_point = 0;
+bool set_focus(int x, int y) {
+    if( x < 1 || x > POINTS_X || y < 1 || y > POINTS_Y )
+        return false;
+
+    // TODO: Refuse if not in AF-S or recording?
+
+    requested_focus_point.x = x;
+    requested_focus_point.y = y;
+
+    log(LOG_DEBUG, string_format("Set focus point %d x %d", x, y));
+
+    if (update_setting(sockfd, requested_focus_point)) {
+        // TODO: Decode if it got focused or not successfully (red/green bracket)
+        if (current_settings(sockfd, settings))
+          print(settings);
+    } else {
+        log(LOG_ERROR, string_format("Failed to adjust focus point"));
+        return false;
+    }
+    return true;
+}
+
 #ifdef WITH_OPENCV
-void image_stream_cv_main(std::atomic<bool>& flag) {
+#define WIN_NAME "Display Window"
+
+static void onMouse( int event, int x, int y, int, void* )
+{
+    if( event != EVENT_LBUTTONDOWN )
+        return;
+
+    Rect win_size = getWindowImageRect(WIN_NAME);
+    float x_perc = (float)x / win_size.width;
+    float y_perc = (float)y / win_size.height;
+
+    // We are running on display thread
+    if(g_comm_lock.try_lock_for(std::chrono::milliseconds(10))) {
+        set_focus(x_perc * (2+POINTS_X), y_perc * (2+POINTS_Y));
+        g_comm_lock.unlock();
+    } else {
+        log(LOG_ERROR, string_format("Failed to get control mutex"));
+    }
+}
+
+//#define CV_TEST
+
+int setup_v4l2(std::string v4l2lo_dev, Mat image) {
+    int v4l2lo = open(v4l2lo_dev.c_str(), O_WRONLY);
+    if(v4l2lo < 0) {
+        log(LOG_ERROR, string_format("Error opening v4l2l device: %s", strerror(errno)));
+        return v4l2lo;
+    }
+
+    struct v4l2_format v;
+    int t;
+    v.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+    t = ioctl(v4l2lo, VIDIOC_G_FMT, &v);
+    if( t < 0 ) {
+        log(LOG_ERROR, string_format("ioctl error with setting up v4l2l device: %d", t));
+        close(v4l2lo);
+        return -1;
+    }
+
+    v.fmt.pix.width = image.cols;
+    v.fmt.pix.height = image.rows;
+    v.fmt.pix.pixelformat = V4L2_PIX_FMT_BGR24;
+    v.fmt.pix.sizeimage = image.total() * image.elemSize();
+    t = ioctl(v4l2lo, VIDIOC_S_FMT, &v);
+    if( t < 0 ) {
+        log(LOG_ERROR, string_format("ioctl error with v4l2l device format: %d", t));
+        close(v4l2lo);
+        return -1;
+    }
+
+    return v4l2lo;
+}
+
+void draw_focus_point(Mat &displayImage, auto_focus_point focus_point, Scalar color) {
+    if( focus_point.x > 0 && focus_point.y > 0 ) {
+        Rect win_size = getWindowImageRect(WIN_NAME);
+
+        Rect focus;
+        focus.x = (float)focus_point.x / (2+POINTS_X) * win_size.width;
+        focus.y = (float)focus_point.y / (2+POINTS_Y) * win_size.height;
+        focus.width = win_size.width / (2+POINTS_X);
+        focus.height = win_size.height / (2+POINTS_Y);
+
+        rectangle(displayImage, focus, color);
+    }
+}
+
+void image_stream_cv_main(std::atomic<bool>& flag, std::string v4l2lo_dev = "") {
   log(LOG_INFO, "image_stream_cv_main");
+#ifndef CV_TEST
   sock const sockfd3 = connect_to_camera(jpg_stream_server_port);
 
   std::vector<uint8_t> buffer(1024 * 1024);
 
   if (sockfd3 <= 0) return;
+#endif
 
-  namedWindow( "Display window", WINDOW_AUTOSIZE );// Create a window for display.
+  int v4l2lo = 0;
+
+  namedWindow( WIN_NAME, WINDOW_AUTOSIZE );// Create a window for display.
+  setMouseCallback(WIN_NAME, onMouse);
   while (flag) {
+    if( getWindowProperty(WIN_NAME, WND_PROP_AUTOSIZE) == -1 )
+        break;
+
+#ifdef CV_TEST
+    Mat decodedImage = Mat::zeros( 480, 640, CV_8UC3 );
+#else
     size_t receivedBytes =
         fuji_receive(sockfd3, buffer.data(), buffer.size());
 
+
     int const header = 14;  // not sure what's in the first 14 bytes
     Mat rawData = Mat( 1, receivedBytes, CV_8UC1, &buffer[header]);
-    Mat decodedImage  =  imdecode( rawData , CV_LOAD_IMAGE_COLOR);
+    Mat decodedImage  =  imdecode( rawData , cv::IMREAD_COLOR );
+#endif
 
     if ( decodedImage.data == NULL )
     {
         log(LOG_WARN, "couldn't decode image");
     }
-    imshow( "Display window", decodedImage );
+    Mat displayImage = decodedImage.clone();
 
-    waitKey(25);
+    if( settings.values[property_focus_lock] == FOCUS_LOCK_ON ) {
+        draw_focus_point(displayImage, requested_focus_point, Scalar(128, 128, 128));
+        draw_focus_point(displayImage, settings.values[property_focus_point], Scalar(255, 255, 255));
+    }
+
+    imshow( WIN_NAME, displayImage );
+
+    // Maybe copy to v4l2lo device
+    if( v4l2lo_dev.length() > 0 && v4l2lo == 0 )
+        v4l2lo = setup_v4l2(v4l2lo_dev, decodedImage);
+
+    if(v4l2lo > 0) {
+        size_t written = write(v4l2lo, decodedImage.data, decodedImage.total() * decodedImage.elemSize());
+        if( written < 0 ) {
+            log(LOG_ERROR, string_format("error writing data to v4l2l: %ld", written));
+            close(v4l2lo);
+            v4l2lo = -1;
+        }
+    }
+
+    waitKey(1);
   }
+
+  destroyAllWindows();
 }
 #endif
 
@@ -75,6 +218,10 @@ void image_stream_main(std::atomic<bool>& flag) {
     snprintf(filename, sizeof(filename), "out/img_%d.jpg", image++);
     FILE* file = fopen(filename, "wb");
     if (file) {
+      // First 14 bytes like:
+      // uint32_t 0
+      // uint32_t frame_no (increments one each time a frame is sent)
+      // rest are 0s
       int const header = 14;  // not sure what's in the first 14 bytes
       fwrite(&buffer[header], receivedBytes, 1, file);
       fclose(file);
@@ -91,6 +238,7 @@ char const* commandStrings[] = {"connect", "shutter", "stream",
                                 "film_simulation", "timer", "flash",
                                 "exposure_compensation", "set_exposure_compensation",
                                 "focus_point", "unlock_focus",
+                                "start_record", "stop_record",
 #ifdef WITH_OPENCV
                                 "stream_cv",
 #endif
@@ -115,6 +263,8 @@ enum class command {
   set_exposure_compensation,
   focus_point,
   unlock_focus,
+  start_record,
+  stop_record,
 #ifdef WITH_OPENCV
   stream_cv,
 #endif
@@ -163,7 +313,8 @@ std::vector<std::string> split(std::string const& str,
 }
 
 int main(int const argc, char const* argv[]) {
-  uint8_t log_level = LOG_INFO;
+  uint8_t log_level = LOG_DEBUG;
+  uint32_t cur_record_id = 0;
 
   if (argc > 1) {
     std::string arg = argv[1];
@@ -177,7 +328,6 @@ int main(int const argc, char const* argv[]) {
    * user uses the <tab> key. */
   linenoiseSetCompletionCallback(completion);
 
-  sock sockfd;
   sock sockfd2;
   std::atomic<bool> imageStreamFlag(true);
   std::thread imageStreamThread;
@@ -185,7 +335,6 @@ int main(int const argc, char const* argv[]) {
   std::thread imageStreamCVThread;
 #endif
   std::vector<capability> caps;
-  current_properties settings;
 
   std::string line;
   while (getline(line)) {
@@ -194,6 +343,8 @@ int main(int const argc, char const* argv[]) {
     if (splitLine.empty()) continue;
 
     command cmd = parse_command(splitLine[0]);
+
+    const std::lock_guard<std::timed_mutex> lock(g_comm_lock);
     switch (cmd) {
       case command::connect: {
         if (sockfd <= 0) {
@@ -214,7 +365,7 @@ int main(int const argc, char const* argv[]) {
         }
       } break;
       case command::shutter: {
-        if (!shutter(sockfd, sockfd2)) log(LOG_ERROR, "failure\n");
+        if (!shutter(sockfd, sockfd2, "thumb.jpg")) log(LOG_ERROR, "failure\n");
 
       } break;
 
@@ -225,8 +376,11 @@ int main(int const argc, char const* argv[]) {
 
 #ifdef WITH_OPENCV
       case command::stream_cv: {
+        std::string v4l2lo_dev = "";
+        if( splitLine.size() > 1 )
+            v4l2lo_dev = splitLine[1];
         imageStreamCVThread =
-            std::thread(([&]() { image_stream_cv_main(imageStreamFlag); }));
+            std::thread(([&]() { image_stream_cv_main(imageStreamFlag, v4l2lo_dev); }));
       } break;
 #endif
 
@@ -248,6 +402,7 @@ int main(int const argc, char const* argv[]) {
         }
       } break;
 
+      // this doesnt seem to work on x-t100
       case command::set_aperture: {
         if (splitLine.size() > 1) {
           uint32_t const aperture = static_cast<uint32_t>(std::stod(splitLine[1]) * 100.0);
@@ -269,6 +424,7 @@ int main(int const argc, char const* argv[]) {
         }
       } break;
 
+      // parameter 1 / -1 to say in/out
       case command::aperture: {
         if (splitLine.size() > 1) {
           int aperture_stops = std::stoi(splitLine[1], 0, 0);
@@ -414,20 +570,7 @@ int main(int const argc, char const* argv[]) {
 
       case command::focus_point: {
         if (splitLine.size() == 3) {
-          auto_focus_point point = 0;
-          point.x = std::stoi(splitLine[1], 0, 0);
-          point.y = std::stoi(splitLine[2], 0, 0);
-          if (point.x * point.y <= 0) {
-            log(LOG_INFO, "Could not parse provided value");
-            break;
-          }
-
-          if (update_setting(sockfd, point)) {
-            if (current_settings(sockfd, settings))
-              print(settings);
-          } else {
-            log(LOG_ERROR, string_format("Failed to adjust focus point"));
-          }
+          set_focus(std::stoi(splitLine[1], 0, 0), std::stoi(splitLine[2], 0, 0));
         }
       } break;
 
@@ -439,6 +582,36 @@ int main(int const argc, char const* argv[]) {
           } else {
             log(LOG_ERROR, string_format("Failed to unlock focus"));
           }
+        }
+      } break;
+
+      case command::start_record: {
+        if( cur_record_id ) {
+            log(LOG_ERROR, string_format("Already recording, issue stop_record first"));
+            break;
+        }
+
+        cur_record_id = start_record(sockfd);
+        if (cur_record_id) {
+          if (current_settings(sockfd, settings))
+              print(settings);
+        } else {
+            log(LOG_ERROR, string_format("Failed to start recording"));
+        }
+      } break;
+
+      case command::stop_record: {
+        if( !cur_record_id ) {
+            log(LOG_ERROR, string_format("Not recording, issue start_record first"));
+            break;
+        }
+
+        if(stop_record(sockfd, cur_record_id)) {
+          cur_record_id = 0;
+          if (current_settings(sockfd, settings))
+              print(settings);
+        } else {
+            log(LOG_ERROR, string_format("Failed to stop recording"));
         }
       } break;
 

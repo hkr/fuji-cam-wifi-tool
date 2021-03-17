@@ -20,6 +20,9 @@ void terminate_control_connection(native_socket sockfd);
 
 bool shutter(native_socket const sockfd, native_socket const sockfd2, const char* thumbnail = 0);
 
+uint32_t start_record(native_socket const sockfd);
+bool stop_record(native_socket const sockfd, uint32_t);
+
 bool current_settings(native_socket sockfd, current_properties& settings);
 
 enum fnumber_update_direction {

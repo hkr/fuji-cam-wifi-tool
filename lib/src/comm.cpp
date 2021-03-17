@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <errno.h>
 #include <algorithm>
+#include <vector>
+#include <cstring>
 #include <assert.h>
 
 #if FCWT_USE_BSD_SOCKETS
@@ -220,9 +222,10 @@ void receive_data(native_socket sockfd, void* data, size_t sizeBytes) {
 }
 
 void fuji_send(native_socket sockfd, void const* data, size_t sizeBytes) {
-  uint32_t const size = to_fuji_size_prefix(static_cast<uint32_t>(sizeBytes) + sizeof(uint32_t));
-  send_data(sockfd, &size, sizeof(uint32_t));
-  send_data(sockfd, data, sizeBytes);
+  std::vector<uint8_t> msg(sizeof(uint32_t) + sizeBytes);
+  *((uint32_t *)msg.data()) = to_fuji_size_prefix(msg.size());
+  std::memcpy(msg.data() + 4, data, sizeBytes);
+  send_data(sockfd, msg.data(), msg.size());
 }
 
 size_t fuji_receive(native_socket sockfd, void* data, size_t sizeBytes) {
@@ -235,6 +238,7 @@ size_t fuji_receive(native_socket sockfd, void* data, size_t sizeBytes) {
   }
   size -= sizeof(size);
   receive_data(sockfd, data, std::min(sizeBytes, static_cast<size_t>(size)));
+  // if size == 4 and data = 0xffffffff then indicates an error or busy)
   return size;
 }
 
