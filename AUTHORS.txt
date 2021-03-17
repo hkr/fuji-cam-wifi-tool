@@ -1,0 +1,6 @@
+Florian Penzkofer <fp@nullptr.de>
+Mark Zealey <mark@markandruth.co.uk>
+Philip Goosen <goosenphil@gmail.com>
+Guenther R. Wenninger <acc.github@bitschubbser.org>
+hi-a <hi-a@example.com>
+
