@@ -17,6 +17,7 @@
 #include <string>
 #include <atomic>
 #include <algorithm>
+#include <mutex>
 
 #ifdef WITH_OPENCV
 #include <opencv2/opencv.hpp>
